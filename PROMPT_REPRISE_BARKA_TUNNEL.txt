@@ -1,0 +1,93 @@
+PROMPT DE REPRISE - PROJET BARKA TUNNEL
+
+Tu reprends le projet Barka Tunnel depuis le ZIP complet joint et le PDF de mémoire joint.
+Lis d'abord entièrement le PDF, puis lis réellement les fichiers concernés avant toute modification.
+
+RÈGLES ABSOLUES DE TRAVAIL
+- Toujours lire un fichier existant avant de le modifier.
+- Travailler sur une copie de la dernière base fournie.
+- Faire uniquement des modifications chirurgicales ciblées ; ne jamais réécrire un fichier entier sans nécessité.
+- Ne rien modifier hors de la demande explicite.
+- Ne jamais casser les fonctionnalités déjà validées.
+- Vérifier syntaxe, XML, Python/Bash/Kotlin selon le fichier, puis vérifier les diffs.
+- Faire un triple contrôle avant livraison.
+- Conserver versionName 1.1.9 et versionCode 65 tant qu'une montée de version n'est pas explicitement demandée.
+- Pour les corrections Android, fournir un ZIP complet et un bloc Termux avec git add sur chemins explicites ; ne jamais utiliser git add .
+- Ne jamais exposer dans les réponses, PDF ou Journal : mots de passe VPN, UUID, clés privées/publiques sensibles, tokens admin, secrets de paiement ou contenu de .env.
+
+ÉTAT VALIDÉ À NE PAS CASSER
+- MOOV-AFRICA BF : SlowDNS + SSH fonctionne sur téléphone réel.
+- ORANGE BF : VLESS/Xray fonctionne sur téléphone réel.
+- TELECEL BF : SSH/UDP fonctionne sur téléphone réel.
+- Correctif SSH important : le SOCKS local doit utiliser le vrai localPort de SshSocksProxy, pas ServerSocket.localPort avant bind (qui donnait -1).
+- Orange utilise le coeur Xray stable préparé par scripts/c6_prepare_native.sh et la config VLESS ne doit pas réintroduire allowInsecure rejeté par le coeur actuel.
+- Reconnexion automatique continue jusqu'à déconnexion utilisateur.
+- Un clic pendant CONNEXION demande la déconnexion et l'état réel du service doit rester synchronisé avec l'accueil.
+- Auto Ping fonctionne via le SOCKS actif ; sa latence est affichée dans le Journal.
+- Les diagnostics techniques DNSTT/SSH/Xray/SOCKS/TUN/tun2socks restent disponibles dans les logs internes mais sont masqués du Journal utilisateur.
+
+ARCHITECTURE ACTUELLE
+- Android : app/
+- Backend FastAPI + SQLite : backend/
+- Panel Web Barka Tunnel : backend/app/admin_panel.py
+- Profils VPN dynamiques : backend/app/vpn_profiles.py + Android vpnprofile/
+- API publique : BarkaBackendClient, endpoint /v1/vpn/catalog et /v1/vpn/profile.
+- Profils attendus : moov_bf=SLOWDNS, orange_bf=VLESS, telecel_bf=UDP.
+
+GESTION DISTANTE FINALISÉE
+- Le panel Web Barka Tunnel permet de modifier la configuration JSON d'un réseau.
+- Chaque ENREGISTRER incrémente la version serveur du profil.
+- Android compare/synchronise les versions, valide la configuration avant cache et utilise Android Keystore pour le cache chiffré.
+- Avec Internet validé, une connexion récupère directement la configuration serveur la plus récente ; elle ne retombe pas silencieusement sur une ancienne config si le serveur répond en erreur.
+- Lorsqu'une nouvelle version est détectée pendant une synchronisation, elle est traitée comme une mise à jour de configuration obligatoire, téléchargée puis validée avant remplacement du cache. Une information de mise à jour obligatoire est affichée après synchronisation automatique.
+- Hors ligne, la dernière configuration valide peut rester utilisable seulement si aucune version obligatoire plus récente n'a déjà été détectée.
+
+MAINTENANCE PAR RÉSEAU
+- La table vpn_profiles contient un champ maintenance.
+- Le panel Web possède un interrupteur Maintenance par réseau.
+- Un réseau en maintenance refuse la livraison de sa configuration côté backend.
+- Android mémorise l'état de maintenance, affiche MAINTENANCE pour le réseau concerné et bloque sa sélection/connexion hors ligne ; avec Internet, le serveur reste la source de vérité et une fin de maintenance est récupérée automatiquement.
+- Les autres réseaux continuent de fonctionner normalement.
+
+ABONNEMENTS ET CODES REDEEM
+- Les Abonnements sont individuels : un code d'abonnement ne peut être utilisé que par un seul appareil. Les codes créés après paiement et les abonnements générés manuellement sont regroupés dans la section Abonnements du panel.
+- Le plan 1w existe et vaut exactement 7 jours (7*24*60*60), avec 24h, 2 semaines et 1 mois.
+- Les Codes Redeem gratuits sont séparés : durée libre en heures, limite maximale d'utilisateurs configurable, compteur utilisations/limite, un usage maximum par appareil pour le même code.
+- Désactiver un Code Redeem bloque les nouvelles activations. Réactiver les autorise à nouveau. Supprimer retire le code et retire le temps restant qu'il a attribué aux utilisateurs concernés.
+- Les dates visibles de création/expiration sont rendues en JJ-MM-AAAA dans le panel.
+
+PANEL RHAFF SERVICE
+- Le gros panel VPS multiprotocole RHAFF SERVICE est séparé de Barka Tunnel.
+- Il n'a pas été modifié pour cette évolution car le centre de gestion nécessaire existe déjà dans le panel Web Barka Tunnel.
+- Ne modifier RHAFF SERVICE que si une future demande l'exige explicitement.
+
+VALIDATION DE RÉFÉRENCE
+- Backend : PYTHONPATH=. pytest -q tests/test_core.py doit être vert.
+- Python : python -m py_compile app/*.py tests/test_core.py.
+- XML Android : parser tous les XML.
+- git diff --check doit être propre.
+- Build Android réel : GitHub Actions.
+- Validation finale VPN : téléphone réel avec MOOV, Orange et Telecel.
+
+Avant toute future modification des moteurs VPN, demander une preuve/log réel et préserver les configurations qui fonctionnent déjà.
+
+DERNIER LOT FONCTIONNEL / ADMINISTRATION
+- Journal utilisateur : le titre de ping est « Latence » (sans le mot VPN).
+- Guide : la présentation mentionne M.RHAFF comme développeur ; la section « Choisir le réseau » explique précisément MOOV (IP 10.x avec deuxième octet >=100), Orange (IP Finder + assistant + scan automatique), et Telecel (sélection puis connexion).
+- Protection Orange sur données mobiles : si ORANGE BF est sélectionné alors que l'IP mobile actuelle n'est pas celle validée par IP Finder, la connexion est refusée avant le démarrage du VPN. Le fonctionnement Orange sur Wi-Fi n'est pas bloqué par cette garde.
+- Paramètres : option « Canal Telegram officiel » ouvrant https://t.me/barkaTunnel.
+- Panel Barka Tunnel : Abonnements issus des paiements et Codes Redeem manuels sont présentés séparément.
+- Les dates visibles de création/expiration des accès sont affichées en JJ-MM-AAAA.
+- Désactiver un code déjà activé gèle réellement l'appareil côté backend : access_state refuse l'accès et aucun profil MOOV/Orange/Telecel n'est livré.
+- Réactiver restaure l'accès si aucune autre révocation ne reste sur l'appareil.
+- Supprimer un code, manuel ou issu d'un paiement, le masque du panel et retire le temps restant encore attribuable à ce code. Une pierre tombale interne empêche un code de paiement supprimé d'être recréé automatiquement par une resynchronisation du paiement.
+- Les migrations DB sont additives : access_disabled sur devices ; applied_from/applied_until/deleted_at sur activation_codes. Elles ont été testées sur une copie de la base VPS sans perte de lignes.
+- Le panel RHAFF SERVICE multiprotocole reste séparé et n'est pas modifié par ce lot.
+
+DERNIER LOT - AUTOMATISATION ET INTERFACE
+- Android force une synchronisation des profils VPN à chaque retour au premier plan avec Internet disponible : une nouvelle version serveur ne dépend plus du bouton de rafraîchissement manuel.
+- Android force également la vérification de mise à jour APK à chaque retour au premier plan. Si le panel publie une APK obligatoire, le dialogue bloquant apparaît automatiquement.
+- Guide « Choisir le réseau » : MOOV-AFRICA / ORANGE / TELECEL sont écrits clairement ; les instructions demandent seulement d'activer les données mobiles de l'opérateur concerné.
+- Paramètres : les options Thème, Langue, Auto Ping, Réglages VPN Android, Vérifier la mise à jour, Partager et Telegram disposent d'icônes représentatives.
+- Panel mobile : le header commun a été corrigé pour que le hamburger reste compact, que le titre/sous-titre ne se chevauchent plus et que le bouton Actualiser reste aligné sur toutes les sections.
+- Les moteurs VPN et leurs configurations fonctionnelles ne doivent pas être modifiés sans une nouvelle demande explicite et des preuves de diagnostic.
