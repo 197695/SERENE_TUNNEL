@@ -1,0 +1,177 @@
+package com.serenetunnel.app.vpnc6
+
+import android.content.Context
+import com.serenetunnel.app.journal.AppLogStore
+import com.serenetunnel.app.vpnprofile.VpnProfileConfig
+import org.json.JSONArray
+import org.json.JSONObject
+import java.io.File
+
+class XrayVlessEngine(
+    private val context: Context,
+    private val config: VpnProfileConfig.Vless,
+    private val socksPort: Int,
+    private val isCancelled: () -> Boolean = { false }
+) : C6ProtocolEngine {
+
+    override val socksAddress: String = "127.0.0.1:$socksPort"
+    private var process: Process? = null
+    private var configFile: File? = null
+    private var logFile: File? = null
+
+    override fun start() {
+        if (isCancelled()) throw InterruptedException("Connexion annulée.")
+        val outboundAddress = config.ip?.takeIf { it.isNotBlank() }
+            ?: config.address
+        AppLogStore.add(
+            context,
+            "Diagnostic VLESS • config VLESS • serveur=$outboundAddress:${config.port} • " +
+                "WS=${config.host}${config.path} • SNI=${config.sni} • sécurité=${config.security}."
+        )
+
+        val xray = NativeCoreLocator.xray(context)
+        if (!xray.canExecute() && !xray.setExecutable(true, false)) {
+            throw IllegalStateException("Le moteur VLESS Android n’est pas exécutable.")
+        }
+
+        val file = File(context.cacheDir, "c6_xray_${System.nanoTime()}.json")
+        file.writeText(buildConfig().toString())
+        configFile = file
+        val output = File(context.cacheDir, "c6_xray_${System.nanoTime()}.log")
+        logFile = output
+
+        process = ProcessCompat.startWithLog(
+            ProcessBuilder(xray.absolutePath, "run", "-config", file.absolutePath),
+            output
+        )
+        AppLogStore.add(
+            context,
+            "Diagnostic VLESS • processus Xray lancé • SOCKS attendu 127.0.0.1:$socksPort."
+        )
+
+        if (!PortWaiter.waitUntilOpen("127.0.0.1", socksPort, XRAY_READY_TIMEOUT_MS) {
+                !isCancelled() && ProcessCompat.isAlive(process)
+            }) {
+            if (isCancelled()) throw InterruptedException("Connexion annulée.")
+            val detail = xrayFailureDetail()
+            AppLogStore.add(
+                context,
+                "Diagnostic VLESS • Xray échec ouverture SOCKS" +
+                    detail.takeIf { it.isNotBlank() }?.let { " • $it" }.orEmpty() + "."
+            )
+            stop()
+            throw IllegalStateException(
+                if (detail.isBlank()) "VLESS n’a pas ouvert son proxy local."
+                else "VLESS n’a pas ouvert son proxy local : $detail"
+            )
+        }
+        AppLogStore.add(context, "Diagnostic VLESS • SOCKS VLESS ouvert • 127.0.0.1:$socksPort.")
+
+        if (!ProcessCompat.isAlive(process)) {
+            val detail = xrayFailureDetail()
+            AppLogStore.add(
+                context,
+                "Diagnostic VLESS • Xray arrêté prématurément" +
+                    detail.takeIf { it.isNotBlank() }?.let { " • $it" }.orEmpty() + "."
+            )
+            stop()
+            throw IllegalStateException(
+                if (detail.isBlank()) "Le moteur VLESS s’est arrêté prématurément."
+                else "Le moteur VLESS s’est arrêté : $detail"
+            )
+        }
+        AppLogStore.add(context, "Diagnostic VLESS • moteur Xray prêt.")
+    }
+
+    override fun stop() {
+        ProcessCompat.stop(process)
+        process = null
+        configFile?.delete()
+        configFile = null
+        logFile?.delete()
+        logFile = null
+    }
+
+    override fun isRunning(): Boolean = ProcessCompat.isAlive(process)
+
+    private fun xrayFailureDetail(): String {
+        val output = logFile?.takeIf { it.isFile }?.readText().orEmpty()
+        if (output.isBlank()) return ""
+        return output
+            .replace(config.uuid, "[uuid masqué]", ignoreCase = true)
+            .lineSequence()
+            .filter { it.isNotBlank() }
+            .toList()
+            .takeLast(3)
+            .joinToString(" | ")
+            .take(300)
+    }
+
+    private fun buildConfig(): JSONObject {
+        // Quand le profil fournit l'IP réelle du serveur, Xray l'utilise pour
+        // la socket TCP. Le Host WebSocket et le SNI TLS restent ceux du domaine,
+        // ce qui évite de dépendre de la résolution DNS du réseau mobile.
+        val outboundAddress = config.ip?.takeIf { it.isNotBlank() }
+            ?: config.address.takeIf { it.isNotBlank() }
+            ?: throw IllegalStateException("Adresse VLESS absente.")
+        val user = JSONObject()
+            .put("id", config.uuid)
+            .put("encryption", config.encryption)
+
+        val vnext = JSONObject()
+            .put("address", outboundAddress)
+            .put("port", config.port)
+            .put("users", JSONArray().put(user))
+
+        val wsSettings = JSONObject()
+            .put("path", config.path)
+            .put("host", config.host)
+
+        val stream = JSONObject()
+            .put("network", config.network)
+            .put("security", config.security)
+            .put("wsSettings", wsSettings)
+        if (!config.proxyHost.isNullOrBlank()) {
+            stream.put("sockopt", JSONObject().put("dialerProxy", "front-proxy"))
+        }
+
+        if (config.security == "tls") {
+            val tlsSettings = JSONObject()
+                .put("serverName", config.sni)
+            // Xray v26.3.27 refuse désormais allowInsecure=true depuis le 01/06/2026.
+            // On laisse donc la validation TLS standard utiliser le SNI configuré.
+            config.fingerprint?.takeIf { it.isNotBlank() }?.let {
+                tlsSettings.put("fingerprint", it)
+            }
+            stream.put("tlsSettings", tlsSettings)
+        }
+
+        val inbound = JSONObject()
+            .put("listen", "127.0.0.1")
+            .put("port", socksPort)
+            .put("protocol", "socks")
+            .put("settings", JSONObject().put("udp", true))
+
+        val outbound = JSONObject()
+            .put("protocol", "vless")
+            .put("settings", JSONObject().put("vnext", JSONArray().put(vnext)))
+            .put("streamSettings", stream)
+
+        val outbounds = JSONArray().put(outbound)
+        if (!config.proxyHost.isNullOrBlank()) {
+            val headers = JSONObject()
+            config.proxyHeaders.forEach { (key, value) -> headers.put(key, value) }
+            outbounds.put(JSONObject().put("tag", "front-proxy").put("protocol", "http")
+                .put("settings", JSONObject().put("address", config.proxyHost)
+                    .put("port", config.proxyPort).put("headers", headers)))
+        }
+        return JSONObject()
+            .put("log", JSONObject().put("loglevel", "warning"))
+            .put("inbounds", JSONArray().put(inbound))
+            .put("outbounds", outbounds)
+    }
+
+    companion object {
+        private const val XRAY_READY_TIMEOUT_MS = 12_000L
+    }
+}
