@@ -1,1 +1,98 @@
+package com.serenetunnel.app.subscription
 
+import android.os.Bundle
+import android.widget.EditText
+import android.widget.TextView
+import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
+import com.serenetunnel.app.R
+import com.serenetunnel.app.backend.BarkaBackendClient
+import com.serenetunnel.app.journal.AppLogStore
+import com.serenetunnel.app.ui.SystemBars
+import com.google.android.material.button.MaterialButton
+import java.util.Locale
+
+class ActivationActivity : AppCompatActivity() {
+
+    companion object {
+        const val EXTRA_ACTIVATION_CODE = "activation_code"
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_activation)
+        SystemBars.apply(this)
+
+        findViewById<android.view.View>(R.id.activationBackButton).setOnClickListener { finish() }
+
+        val codeInput = findViewById<EditText>(R.id.activationCodeInput)
+        val activateButton = findViewById<MaterialButton>(R.id.activateButton)
+        val help = findViewById<TextView>(R.id.activationHelp)
+
+        intent.getStringExtra(EXTRA_ACTIVATION_CODE)
+            ?.trim()
+            ?.takeIf { it.isNotBlank() }
+            ?.let { codeInput.setText(it) }
+
+        help.setOnClickListener {
+            Toast.makeText(
+                this,
+                R.string.activation_where_code_message,
+                Toast.LENGTH_LONG
+            ).show()
+        }
+
+        activateButton.setOnClickListener {
+            val code = codeInput.text.toString()
+                .trim()
+                .uppercase(Locale.ROOT)
+
+            if (code.isBlank()) {
+                Toast.makeText(
+                    this,
+                    R.string.activation_code_required,
+                    Toast.LENGTH_SHORT
+                ).show()
+                return@setOnClickListener
+            }
+
+            codeInput.setText(code)
+            activateButton.isEnabled = false
+            AppLogStore.add(
+                this,
+                "Activation • Tentative de validation d’un code d’activation."
+            )
+
+            Thread {
+                try {
+                    val result = BarkaBackendClient(this).redeemActivationCode(code)
+                    runOnUiThread {
+                        activateButton.isEnabled = true
+                        if (result.success) {
+                            AppLogStore.add(
+                                this,
+                                if (result.access.remainingSeconds == com.serenetunnel.app.ui.home.ConnectionTimeFormatter.UNLIMITED_SECONDS)
+                                    "Activation • Abonnement illimité activé."
+                                else "Activation • Abonnement activé • ${result.access.remainingSeconds}s restantes."
+                            )
+                            Toast.makeText(this, result.message, Toast.LENGTH_LONG).show()
+                            finish()
+                        } else {
+                            AppLogStore.add(this, "Activation • Code refusé.")
+                            Toast.makeText(this, result.message, Toast.LENGTH_LONG).show()
+                        }
+                    }
+                } catch (e: Exception) {
+                    runOnUiThread {
+                        activateButton.isEnabled = true
+                        Toast.makeText(
+                            this,
+                            e.message ?: getString(R.string.activation_unavailable),
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                }
+            }.start()
+        }
+    }
+}
