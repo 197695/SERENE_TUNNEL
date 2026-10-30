@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/serene_background"
+    android:orientation="vertical">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingStart="20dp"
+        android:paddingTop="40dp"
+        android:paddingEnd="20dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <ImageView
+            android:id="@+id/activationBackButton"
+            android:layout_width="46dp"
+            android:layout_height="46dp"
+            android:contentDescription="@string/back"
+            android:padding="10dp"
+            android:src="@drawable/ic_back_serene" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:text="@string/activation_title"
+            android:textColor="@color/serene_blue"
+            android:textSize="21sp"
+            android:textStyle="bold" />
+
+        <View
+            android:layout_width="46dp"
+            android:layout_height="46dp" />
+    </LinearLayout>
+    </LinearLayout>
+
+    <com.serenetunnel.app.ui.common.AdaptiveNoScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp"
+            android:paddingBottom="20dp">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="26dp"
+        android:gravity="center"
+        android:text="@string/activation_help"
+        android:textColor="@color/serene_text"
+        android:textSize="15sp"
+        android:textStyle="bold" />
+
+    <EditText
+        android:id="@+id/activationCodeInput"
+        android:layout_width="match_parent"
+        android:layout_height="60dp"
+        android:layout_marginTop="22dp"
+        android:background="@drawable/bg_network_selected"
+        android:hint="@string/activation_hint"
+        android:inputType="textCapCharacters"
+        android:paddingHorizontal="16dp"
+        android:textColor="@color/serene_text"
+        android:textColorHint="@color/serene_text_secondary"
+        android:textSize="15sp" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/activateButton"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:layout_marginTop="12dp"
+        android:text="@string/activation_button"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        app:backgroundTint="@color/serene_blue"
+        app:cornerRadius="12dp" />
+
+    <TextView
+        android:id="@+id/activationHelp"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginTop="6dp"
+        android:gravity="center"
+        android:text="@string/activation_where_code"
+        android:textColor="@color/serene_blue"
+        android:textSize="13sp"
+        android:textStyle="bold" />
+        </LinearLayout>
+    </com.serenetunnel.app.ui.common.AdaptiveNoScrollView>
+</LinearLayout>

@@ -1,0 +1,266 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/serene_background"
+    android:orientation="vertical">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingStart="20dp"
+        android:paddingTop="40dp"
+        android:paddingEnd="20dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <ImageView
+                android:id="@+id/backButton"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:contentDescription="@string/back"
+                android:padding="10dp"
+                android:src="@drawable/ic_back_serene" />
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:text="@string/ip_finder_title"
+                android:textColor="@color/serene_blue"
+                android:textSize="20sp"
+                android:textStyle="bold" />
+
+            <View
+                android:layout_width="48dp"
+                android:layout_height="48dp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <com.serenetunnel.app.ui.home.NonScrollingScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp"
+            android:paddingBottom="20dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:background="@drawable/bg_network_selected"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <EditText
+                    android:id="@+id/ipInput"
+                    android:layout_width="match_parent"
+                    android:layout_height="92dp"
+                    android:background="@drawable/bg_network_selected"
+                    android:gravity="top|start"
+                    android:hint="@string/ip_finder_search_hint"
+                    android:inputType="textMultiLine|textNoSuggestions"
+                    android:maxLines="4"
+                    android:padding="14dp"
+                    android:textColor="@color/serene_text"
+                    android:textColorHint="@color/serene_text_secondary"
+                    android:textSize="15sp" />
+
+                <TextView
+                    android:id="@+id/ipPatternHelp"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:text="@string/ip_finder_pattern_help"
+                    android:textColor="@color/serene_text_secondary"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:background="@drawable/bg_network_selected"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <ImageView
+                        android:layout_width="26dp"
+                        android:layout_height="26dp"
+                        android:contentDescription="@string/menu_ip_finder"
+                        android:src="@drawable/ic_menu_ip_finder"
+                        app:tint="@color/serene_blue" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="12dp"
+                        android:text="@string/ip_finder_method"
+                        android:textColor="@color/serene_text"
+                        android:textSize="15sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:background="@drawable/bg_ip_finder_method"
+                    android:paddingHorizontal="14dp"
+                    android:paddingVertical="8dp"
+                    android:text="@string/ip_finder_assistant_chip"
+                    android:textColor="@color/serene_blue"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="@string/ip_finder_assistant_explanation"
+                    android:textColor="@color/serene_text_secondary"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/setAssistantButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:layout_marginTop="14dp"
+                    android:text="@string/ip_finder_set_assistant"
+                    android:textColor="@color/serene_blue"
+                    android:textStyle="bold"
+                    app:backgroundTint="@color/serene_card"
+                    app:cornerRadius="24dp"
+                    app:icon="@drawable/ic_menu_ip_finder"
+                    app:iconTint="@color/serene_blue"
+                    app:strokeColor="@color/serene_border"
+                    app:strokeWidth="1dp" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/wifiWarning"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:text="@string/ip_finder_wifi_warning"
+                android:textColor="@color/serene_red"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="@string/ip_finder_disconnect_notice"
+                android:textColor="@color/serene_text_secondary"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:background="@drawable/bg_network_selected"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:id="@+id/scanStatus"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/ip_finder_idle"
+                    android:textColor="@color/serene_blue"
+                    android:textSize="15sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/scanProgress"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="@string/ip_finder_current_cellular_ip"
+                    android:textColor="@color/serene_text_secondary"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical">
+                <TextView
+                    android:id="@+id/scanResult"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="@string/ip_finder_no_cellular_ip"
+                    android:textColor="@color/serene_text"
+                    android:textIsSelectable="true"
+                    android:textSize="24sp"
+                    android:textStyle="bold" />
+                    <ImageButton android:id="@+id/ipNetworkSettings" android:layout_width="48dp" android:layout_height="48dp"
+                        android:src="@drawable/ic_menu_settings_line" app:tint="@color/serene_blue"
+                        android:background="?attr/selectableItemBackgroundBorderless" android:contentDescription="@string/ip_network_settings" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/scanButton"
+                android:layout_width="match_parent"
+                android:layout_height="58dp"
+                android:layout_marginTop="16dp"
+                android:text="@string/ip_finder_find"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                app:backgroundTint="@color/serene_blue"
+                app:cornerRadius="16dp"
+                app:icon="@drawable/ic_menu_ip_finder"
+                app:iconTint="@color/white" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/manualAirplaneButton"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:layout_marginTop="8dp"
+                android:text="@string/ip_finder_manual_airplane"
+                android:textColor="@color/serene_blue"
+                android:visibility="gone"
+                app:backgroundTint="@color/serene_blue_light"
+                app:cornerRadius="14dp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/stopButton"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:layout_marginTop="8dp"
+                android:text="@string/ip_finder_stop"
+                android:textColor="@color/serene_red"
+                android:textStyle="bold"
+                android:visibility="invisible"
+                app:backgroundTint="@color/serene_card"
+                app:cornerRadius="14dp"
+                app:strokeColor="@color/serene_red"
+                app:strokeWidth="1dp" />
+        </LinearLayout>
+    </com.serenetunnel.app.ui.home.NonScrollingScrollView>
+
+</LinearLayout>

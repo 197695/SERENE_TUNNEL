@@ -1,0 +1,447 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/serene_background"
+    android:orientation="vertical">
+
+    <LinearLayout
+        android:id="@+id/settingsFixedHeader"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/serene_background"
+        android:orientation="vertical"
+        android:paddingStart="20dp"
+        android:paddingTop="40dp"
+        android:paddingEnd="20dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <ImageView
+                android:id="@+id/settingsBackButton"
+                android:layout_width="46dp"
+                android:layout_height="46dp"
+                android:clickable="true"
+                android:contentDescription="@string/back"
+                android:focusable="true"
+                android:padding="10dp"
+                android:src="@drawable/ic_back_serene" />
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:text="@string/settings_title"
+                android:textColor="@color/serene_blue"
+                android:textSize="21sp"
+                android:textStyle="bold" />
+
+            <View
+                android:layout_width="46dp"
+                android:layout_height="46dp" />
+        </LinearLayout>
+
+    </LinearLayout>
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true"
+        android:smoothScrollbar="true"
+        android:clipToPadding="false"
+        android:overScrollMode="never"
+        android:scrollbars="none">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingStart="20dp"
+            android:paddingTop="0dp"
+            android:paddingEnd="20dp"
+            android:paddingBottom="24dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:text="@string/settings_general"
+                android:textColor="@color/serene_blue"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/themeButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="76dp"
+                android:layout_marginTop="8dp"
+                android:gravity="start|center_vertical"
+                android:paddingHorizontal="16dp"
+                android:text="@string/settings_theme_format"
+                android:textAllCaps="false"
+                android:textColor="@color/serene_text"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                app:backgroundTint="@color/serene_card"
+                app:cornerRadius="20dp"
+
+                app:icon="@drawable/tile_ic_theme_serene"
+                app:iconGravity="start"
+                app:iconSize="44dp"
+                app:iconPadding="12dp"
+                app:iconTint="@null"
+                app:strokeColor="@color/serene_border"
+                app:strokeWidth="1dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:paddingTop="16dp"
+                android:paddingBottom="16dp"
+                app:rippleColor="@color/serene_border" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/languageButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="76dp"
+                android:layout_marginTop="12dp"
+                android:gravity="start|center_vertical"
+                android:paddingHorizontal="16dp"
+                android:text="@string/settings_language_format"
+                android:textAllCaps="false"
+                android:textColor="@color/serene_text"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                app:backgroundTint="@color/serene_card"
+                app:cornerRadius="20dp"
+
+                app:icon="@drawable/tile_ic_language_serene"
+                app:iconGravity="start"
+                app:iconSize="44dp"
+                app:iconPadding="12dp"
+                app:iconTint="@null"
+                app:strokeColor="@color/serene_border"
+                app:strokeWidth="1dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:paddingTop="16dp"
+                android:paddingBottom="16dp"
+                app:rippleColor="@color/serene_border" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:text="@string/settings_connection"
+                android:textColor="@color/serene_blue"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="76dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/bg_network_selected"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingHorizontal="16dp">
+
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:layout_marginEnd="12dp"
+                    android:contentDescription="@string/settings_auto_ping"
+                    android:src="@drawable/ic_ping_serene" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/settings_auto_ping"
+                        android:textColor="@color/serene_text"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="3dp"
+                        android:text="@string/settings_auto_ping_summary"
+                        android:textColor="@color/serene_text_secondary"
+                        android:textSize="11sp" />
+                </LinearLayout>
+
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/autoPingSwitch"
+                    android:contentDescription="@string/settings_auto_ping"
+                    android:minHeight="48dp"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
+            </LinearLayout>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/vpnSettingsButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="76dp"
+                android:layout_marginTop="12dp"
+                android:gravity="start|center_vertical"
+                android:paddingHorizontal="16dp"
+                android:text="@string/consumption_title"
+                android:textAllCaps="false"
+                android:textColor="@color/serene_text"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                app:backgroundTint="@color/serene_card"
+                app:cornerRadius="20dp"
+
+                app:icon="@drawable/tile_ic_consumption_serene"
+                app:iconGravity="start"
+                app:iconSize="44dp"
+                app:iconPadding="12dp"
+                app:iconTint="@null"
+                app:strokeColor="@color/serene_border"
+                app:strokeWidth="1dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:paddingTop="16dp"
+                android:paddingBottom="16dp"
+                app:rippleColor="@color/serene_border" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:text="@string/settings_tools"
+                android:textColor="@color/serene_blue"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/vpnShareButton" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:minHeight="76dp" android:layout_marginTop="12dp" android:gravity="start|center_vertical"
+                android:padding="16dp" android:text="@string/vpn_share_title" android:textAllCaps="false"
+                android:textColor="@color/serene_text" android:textSize="16sp" android:textStyle="bold"
+                app:backgroundTint="@color/serene_card" app:cornerRadius="20dp" app:icon="@drawable/ic_vpn_share"
+                app:iconGravity="start" app:iconSize="32dp" app:iconPadding="16dp" app:iconTint="@null"
+                app:strokeColor="@color/serene_border" app:strokeWidth="1dp"
+                android:insetTop="0dp" android:insetBottom="0dp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/vpnSpeedButton" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:minHeight="76dp" android:layout_marginTop="12dp" android:gravity="start|center_vertical"
+                android:padding="16dp" android:text="@string/vpn_speed_title" android:textAllCaps="false"
+                android:textColor="@color/serene_text" android:textSize="16sp" android:textStyle="bold"
+                app:backgroundTint="@color/serene_card" app:cornerRadius="20dp" app:icon="@drawable/ic_vpn_speed"
+                app:iconGravity="start" app:iconSize="32dp" app:iconPadding="16dp" app:iconTint="@null"
+                app:strokeColor="@color/serene_border" app:strokeWidth="1dp"
+                android:insetTop="0dp" android:insetBottom="0dp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/checkUpdateButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="76dp"
+                android:layout_marginTop="8dp"
+                android:gravity="start|center_vertical"
+                android:paddingHorizontal="16dp"
+                android:text="@string/settings_check_update"
+                android:textAllCaps="false"
+                android:textColor="@color/serene_text"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                app:backgroundTint="@color/serene_card"
+                app:cornerRadius="20dp"
+
+                app:icon="@drawable/tile_ic_refresh_serene"
+                app:iconGravity="start"
+                app:iconSize="44dp"
+                app:iconPadding="12dp"
+                app:iconTint="@null"
+                app:strokeColor="@color/serene_border"
+                app:strokeWidth="1dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:paddingTop="16dp"
+                android:paddingBottom="16dp"
+                app:rippleColor="@color/serene_border" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/shareAppButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="76dp"
+                android:layout_marginTop="12dp"
+                android:gravity="start|center_vertical"
+                android:paddingHorizontal="16dp"
+                android:text="@string/settings_share_app"
+                android:textAllCaps="false"
+                android:textColor="@color/serene_text"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                app:backgroundTint="@color/serene_card"
+                app:cornerRadius="20dp"
+                app:icon="@drawable/tile_ic_share_serene"
+                app:iconGravity="start"
+                app:iconSize="44dp"
+                app:iconPadding="12dp"
+                app:iconTint="@null"
+                app:strokeColor="@color/serene_border"
+                app:strokeWidth="1dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:paddingTop="16dp"
+                android:paddingBottom="16dp"
+                app:rippleColor="@color/serene_border" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/rateAppButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="76dp"
+                android:layout_marginTop="12dp"
+                android:gravity="start|center_vertical"
+                android:paddingHorizontal="16dp"
+                android:text="@string/settings_rate_app"
+                android:textAllCaps="false"
+                android:textColor="@color/serene_text"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                app:backgroundTint="@color/serene_card"
+                app:cornerRadius="20dp"
+                app:icon="@drawable/tile_ic_rate_serene"
+                app:iconGravity="start"
+                app:iconSize="44dp"
+                app:iconPadding="12dp"
+                app:iconTint="@null"
+                app:strokeColor="@color/serene_border"
+                app:strokeWidth="1dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:paddingTop="16dp"
+                android:paddingBottom="16dp"
+                app:rippleColor="@color/serene_border" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/telegramChannelButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="76dp"
+                android:layout_marginTop="12dp"
+                android:gravity="start|center_vertical"
+                android:paddingHorizontal="16dp"
+                android:text="@string/settings_telegram_channel"
+                android:textAllCaps="false"
+                android:textColor="@color/serene_text"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                app:backgroundTint="@color/serene_card"
+                app:cornerRadius="20dp"
+
+                app:icon="@drawable/tile_ic_telegram_serene"
+                app:iconGravity="start"
+                app:iconSize="44dp"
+                app:iconPadding="12dp"
+                app:iconTint="@null"
+                app:strokeColor="@color/serene_border"
+                app:strokeWidth="1dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:paddingTop="16dp"
+                android:paddingBottom="16dp"
+                app:rippleColor="@color/serene_border" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/telegramBotButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="76dp"
+                android:layout_marginTop="12dp"
+                android:gravity="start|center_vertical"
+                android:paddingHorizontal="16dp"
+                android:text="@string/settings_telegram_bot"
+                android:textAllCaps="false"
+                android:textColor="@color/serene_text"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                app:backgroundTint="@color/serene_card"
+                app:cornerRadius="20dp"
+
+                app:icon="@drawable/ic_telegram_bot"
+                app:iconGravity="start"
+                app:iconSize="44dp"
+                app:iconPadding="12dp"
+                app:iconTint="@null"
+                app:strokeColor="@color/serene_border"
+                app:strokeWidth="1dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:paddingTop="16dp"
+                android:paddingBottom="16dp"
+                app:rippleColor="@color/serene_border" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/shopButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="76dp"
+                android:layout_marginTop="12dp"
+                android:gravity="start|center_vertical"
+                android:paddingHorizontal="16dp"
+                android:text="@string/settings_shop"
+                android:textAllCaps="false"
+                android:textColor="@color/serene_text"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                app:backgroundTint="@color/serene_card"
+                app:cornerRadius="20dp"
+                app:icon="@drawable/tile_ic_shop_serene"
+                app:iconGravity="start"
+                app:iconSize="44dp"
+                app:iconPadding="12dp"
+                app:iconTint="@null"
+                app:strokeColor="@color/serene_border"
+                app:strokeWidth="1dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:paddingTop="16dp"
+                android:paddingBottom="16dp"
+                app:rippleColor="@color/serene_border" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:text="@string/settings_about"
+                android:textColor="@color/serene_blue"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/aboutValue"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/bg_network_selected"
+                android:padding="18dp"
+                android:text="@string/app_name"
+                android:textColor="@color/serene_text"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+    </ScrollView>
+
+</LinearLayout>

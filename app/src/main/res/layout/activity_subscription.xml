@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/serene_background"
+    android:orientation="vertical">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingStart="20dp"
+        android:paddingTop="40dp"
+        android:paddingEnd="20dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <ImageView
+                android:id="@+id/subscriptionBackButton"
+                android:layout_width="46dp"
+                android:layout_height="46dp"
+                android:contentDescription="@string/back"
+                android:padding="10dp"
+                android:src="@drawable/ic_back_serene" />
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:text="@string/subscription_title"
+                android:textColor="@color/serene_blue"
+                android:textSize="21sp"
+                android:textStyle="bold" />
+
+            <View
+                android:layout_width="46dp"
+                android:layout_height="46dp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <com.serenetunnel.app.ui.common.AdaptiveNoScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp"
+            android:paddingBottom="20dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="22dp"
+            android:text="@string/subscription_choose_offer"
+            android:textColor="@color/serene_text"
+            android:textSize="15sp"
+            android:textStyle="bold" />
+
+        <RadioGroup
+            android:id="@+id/plansGroup"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:checkedButton="@id/plan24h">
+
+            <RadioButton
+                android:id="@+id/plan24h"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="60dp" android:paddingVertical="14dp"
+                android:background="@drawable/bg_network_selected"
+                android:buttonTint="@color/serene_blue"
+                android:checked="true"
+                android:paddingHorizontal="16dp"
+                android:text="@string/subscription_24h"
+                android:textColor="@color/serene_text"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+            <RadioButton
+                android:id="@+id/plan1w"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="60dp" android:paddingVertical="14dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/bg_network_selected"
+                android:buttonTint="@color/serene_blue"
+                android:paddingHorizontal="16dp"
+                android:text="@string/subscription_week"
+                android:textColor="@color/serene_text"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+            <RadioButton
+                android:id="@+id/plan2w"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="60dp" android:paddingVertical="14dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/bg_network_selected"
+                android:buttonTint="@color/serene_blue"
+                android:paddingHorizontal="16dp"
+                android:text="@string/subscription_two_weeks"
+                android:textColor="@color/serene_text"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+            <RadioButton
+                android:id="@+id/plan1m"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="60dp" android:paddingVertical="14dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/bg_network_selected"
+                android:buttonTint="@color/serene_blue"
+                android:paddingHorizontal="16dp"
+                android:text="@string/subscription_month"
+                android:textColor="@color/serene_text"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+            <RadioButton
+                android:id="@+id/plan3m"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="60dp" android:paddingVertical="14dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/bg_network_selected"
+                android:buttonTint="@color/serene_blue"
+                android:paddingHorizontal="16dp"
+                android:text="@string/subscription_three_months"
+                android:textColor="@color/serene_text"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+        </RadioGroup>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:background="@drawable/bg_network_selected"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/subscription_secure_payment"
+                android:textColor="@color/serene_blue"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="@string/subscription_payment_help"
+                android:textColor="@color/serene_text_secondary"
+                android:textSize="13sp" />
+
+
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/payButton"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:layout_marginTop="14dp"
+                android:text="@string/subscription_pay"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                app:backgroundTint="@color/serene_blue"
+                app:cornerRadius="12dp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:gravity="center"
+                android:text="@string/subscription_after_payment"
+                android:textColor="@color/serene_text_secondary"
+                android:textSize="12sp" />
+        </LinearLayout>
+        </LinearLayout>
+    </com.serenetunnel.app.ui.common.AdaptiveNoScrollView>
+</LinearLayout>

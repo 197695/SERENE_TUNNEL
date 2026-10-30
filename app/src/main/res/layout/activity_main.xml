@@ -1,0 +1,469 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/serene_background"
+    android:orientation="vertical">
+
+    <LinearLayout
+        android:id="@+id/homeFixedHeader"
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/home_header_height"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="@dimen/home_horizontal_padding"
+        android:paddingEnd="@dimen/home_horizontal_padding">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <ImageView
+                android:layout_width="@dimen/home_header_logo_size"
+                android:layout_height="@dimen/home_header_logo_size"
+                android:contentDescription="@string/serene_logo_description"
+                android:src="@drawable/ic_serene_logo" />
+
+            <androidx.appcompat.widget.AppCompatTextView
+                android:id="@+id/homeBrandName"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="@dimen/home_brand_margin_start"
+                android:layout_weight="1"
+                android:maxLines="1"
+                android:text="@string/app_name"
+                android:textColor="@color/serene_text"
+                android:textSize="@dimen/home_brand_text_size"
+                android:textStyle="bold"
+                app:autoSizeMaxTextSize="@dimen/home_brand_text_size"
+                app:autoSizeMinTextSize="8sp"
+                app:autoSizeStepGranularity="1sp"
+                app:autoSizeTextType="uniform" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/buttonFreeTrial"
+            android:visibility="gone"
+            android:layout_width="@dimen/home_header_action_width"
+            android:layout_height="@dimen/home_header_action_height"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:orientation="vertical">
+
+            <ImageView
+                android:layout_width="@dimen/home_header_action_icon_size"
+                android:layout_height="@dimen/home_header_action_icon_size"
+                android:contentDescription="@string/free_trial_description"
+                android:src="@drawable/ic_gift_serene"
+                app:tint="@color/serene_red" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/buttonRefresh"
+            android:layout_width="@dimen/home_header_action_width"
+            android:layout_height="@dimen/home_header_action_height"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:orientation="vertical">
+
+            <ImageView
+                android:layout_width="@dimen/home_header_action_icon_size"
+                android:layout_height="@dimen/home_header_action_icon_size"
+                android:contentDescription="@string/check_updates_description"
+                android:src="@drawable/ic_refresh_serene" />
+        </LinearLayout>
+
+        <ImageView
+            android:id="@+id/buttonMenu"
+            android:layout_width="@dimen/home_header_menu_size"
+            android:layout_height="@dimen/home_header_menu_size"
+            android:clickable="true"
+            android:contentDescription="@string/open_menu_description"
+            android:focusable="true"
+            android:padding="12dp"
+            android:background="?attr/selectableItemBackgroundBorderless" app:tint="@color/serene_blue"
+            android:src="@drawable/ic_menu_serene" />
+    </LinearLayout>
+
+
+    <include layout="@layout/home_apk_download" />
+
+    <com.serenetunnel.app.ui.home.NonScrollingScrollView
+        android:id="@+id/homeContentViewport"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="false"
+        android:overScrollMode="never"
+        android:scrollbars="none">
+
+        <LinearLayout
+            android:id="@+id/homeContent"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingStart="@dimen/home_horizontal_padding"
+            android:paddingTop="@dimen/home_content_top_padding"
+            android:paddingEnd="@dimen/home_horizontal_padding"
+            android:paddingBottom="@dimen/home_content_bottom_padding">
+
+
+            <LinearLayout
+                android:id="@+id/networkIpCard"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/home_ip_card_margin_top"
+                android:background="@drawable/bg_card_final"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:padding="@dimen/home_card_padding">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/network_ip_title"
+                        android:textColor="@color/serene_blue"
+                        android:textSize="12sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/networkIpValue"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="5dp"
+                        android:text="@string/network_ip_offline"
+                        android:textColor="@color/serene_text"
+                        android:textSize="@dimen/home_ip_value_text_size"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/networkIpStatus"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="3dp"
+                        android:text="@string/network_ip_current"
+                        android:textColor="@color/serene_text_secondary"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
+                <ImageView
+                    android:id="@+id/networkTransportIcon"
+                    android:layout_width="@dimen/home_transport_icon_size"
+                    android:layout_height="@dimen/home_transport_icon_size"
+                    android:contentDescription="@string/network_transport_network"
+                    android:src="@drawable/ic_wifi_serene"
+                    android:visibility="gone" />
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/home_network_title_margin_top"
+                android:text="@string/network_title"
+                android:textColor="@color/serene_blue"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+
+            <LinearLayout
+                android:id="@+id/networkSelector"
+                android:layout_width="match_parent"
+                android:layout_height="@dimen/home_network_selector_height"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/bg_card_final"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingHorizontal="@dimen/home_network_selector_padding">
+
+                <ImageView
+                    android:id="@+id/networkLogo"
+                    android:layout_width="@dimen/home_network_logo_size"
+                    android:layout_height="@dimen/home_network_logo_size"
+                    android:adjustViewBounds="true"
+                    android:contentDescription="@string/selected_operator_logo_description"
+                    android:scaleType="fitCenter"
+                    android:src="@drawable/moov_africa_official" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="@dimen/home_network_content_margin_start"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/selected_network_title"
+                        android:textColor="@color/serene_blue"
+                        android:textSize="11sp"
+                        android:textStyle="bold" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="5dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:id="@+id/networkName"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:maxLines="1"
+                            android:text="MOOV-AFRICA BF"
+                            android:textColor="@color/serene_text"
+                            android:textSize="@dimen/home_network_name_text_size"
+                            android:textStyle="bold"
+                            app:autoSizeMaxTextSize="@dimen/home_network_name_text_size"
+                            app:autoSizeMinTextSize="12sp"
+                            app:autoSizeStepGranularity="1sp"
+                            app:autoSizeTextType="uniform" />
+
+                        <ImageView
+                            android:id="@+id/networkFlagBurkina"
+                            android:layout_width="@dimen/home_flag_width"
+                            android:layout_height="@dimen/home_flag_height"
+                            android:layout_marginStart="6dp"
+                            android:contentDescription="@string/burkina_faso"
+                            android:src="@drawable/ic_flag_bf" />
+
+                        <ImageView
+                            android:id="@+id/networkFlagNiger"
+                            android:layout_width="@dimen/home_flag_width"
+                            android:layout_height="@dimen/home_flag_height"
+                            android:layout_marginStart="4dp"
+                            android:contentDescription="@string/niger"
+                            android:src="@drawable/ic_flag_ne" />
+
+                        <ImageView
+                            android:id="@+id/networkFlagTogo"
+                            android:layout_width="@dimen/home_flag_width"
+                            android:layout_height="@dimen/home_flag_height"
+                            android:layout_marginStart="4dp"
+                            android:contentDescription="@string/togo"
+                            android:src="@drawable/ic_flag_tg" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/networkSubtitle"
+                        android:layout_width="1dp"
+                        android:layout_height="1dp"
+                        android:text="@string/selected_network_subtitle"
+                        android:visibility="gone" />
+                </LinearLayout>
+
+                <TextView
+                    android:layout_width="36dp"
+                    android:layout_height="match_parent"
+                    android:gravity="center"
+                    android:text="›"
+                    android:textColor="@color/serene_blue"
+                    android:textSize="32sp" />
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="@dimen/home_power_spacer_height" />
+
+            <TextView
+                android:id="@+id/powerButton"
+                android:layout_width="@dimen/home_power_size"
+                android:layout_height="@dimen/home_power_size"
+                android:layout_gravity="center_horizontal"
+                android:background="@drawable/bg_power_final"
+                android:elevation="5dp"
+                android:gravity="center"
+                android:text=""
+                android:textColor="@color/serene_blue"
+                android:textSize="58sp" />
+
+            <TextView
+                android:id="@+id/vpnStatus"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/home_status_margin_top"
+                android:gravity="center"
+                android:text="@string/status_not_connected"
+                android:textColor="@color/serene_text"
+                android:textSize="@dimen/home_status_text_size"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/connectionTime"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:gravity="center"
+                android:text="@string/connection_time_format"
+                android:textColor="@color/serene_text_secondary"
+                android:textSize="12sp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/home_remaining_card_margin_top"
+                android:background="@drawable/bg_card_final"
+                android:gravity="center_vertical"
+                android:minHeight="@dimen/home_remaining_card_min_height"
+                android:orientation="horizontal"
+                android:padding="@dimen/home_remaining_card_padding">
+
+                <ImageView
+                    android:layout_width="@dimen/home_clock_size"
+                    android:layout_height="@dimen/home_clock_size"
+                    android:contentDescription="@string/remaining_time_description"
+                    android:padding="10dp"
+                    android:src="@drawable/ic_clock_serene" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="@dimen/home_remaining_content_margin_start"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/remaining_time"
+                        android:textColor="@color/serene_blue"
+                        android:textSize="@dimen/home_remaining_label_text_size"
+                        android:maxLines="1"
+                        android:textStyle="bold"
+                        app:autoSizeMaxTextSize="@dimen/home_remaining_label_text_size"
+                        app:autoSizeMinTextSize="10sp"
+                        app:autoSizeStepGranularity="1sp"
+                        app:autoSizeTextType="uniform" />
+
+                    <TextView
+                        android:id="@+id/accessRemainingTime"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:maxLines="1"
+                        android:text="00:00:00"
+                        android:textColor="@color/serene_text"
+                        android:textSize="@dimen/home_remaining_time_text_size"
+                        android:textStyle="bold"
+                        app:autoSizeMaxTextSize="@dimen/home_remaining_time_text_size"
+                        app:autoSizeMinTextSize="12sp"
+                        app:autoSizeStepGranularity="1sp"
+                        app:autoSizeTextType="uniform" />
+
+                    <TextView
+                        android:id="@+id/accessStatus"
+                        android:layout_width="1dp"
+                        android:layout_height="1dp"
+                        android:text=""
+                        android:visibility="gone" />
+                </LinearLayout>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/addAccessButton"
+                    android:layout_width="@dimen/home_add_button_width"
+                    android:layout_height="@dimen/home_add_button_height"
+                    android:text="@string/add"
+                    android:textSize="@dimen/home_add_button_text_size"
+                    android:textStyle="bold"
+                    app:backgroundTint="@color/serene_blue"
+                    app:cornerRadius="12dp" />
+            </LinearLayout>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/connectButton"
+                android:layout_width="1dp"
+                android:layout_height="1dp"
+                android:text="@string/connect"
+                android:visibility="gone" />
+        </LinearLayout>
+    </com.serenetunnel.app.ui.home.NonScrollingScrollView>
+
+    <View
+        android:id="@+id/pageBottomDivider"
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="@color/serene_border" />
+
+    <LinearLayout
+        android:id="@+id/pageBottomNavigation"
+        android:layout_width="match_parent"
+        android:layout_height="70dp"
+        android:background="@color/serene_card"
+        android:gravity="center"
+        android:orientation="horizontal">
+
+        <LinearLayout
+            android:id="@+id/navHome"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:orientation="vertical">
+
+            <ImageView
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:contentDescription="@string/home"
+                android:src="@drawable/ic_nav_home_active" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:text="@string/home"
+                android:textColor="@color/serene_blue"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/navJournal"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:orientation="vertical">
+
+            <ImageView
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:contentDescription="@string/journal"
+                android:src="@drawable/ic_nav_journal" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:text="@string/journal"
+                android:textColor="@color/serene_text_secondary"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <View
+            android:id="@+id/navIpFinder"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:visibility="gone" />
+
+        <View
+            android:id="@+id/navSettings"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:visibility="gone" />
+    </LinearLayout>
+</LinearLayout>
