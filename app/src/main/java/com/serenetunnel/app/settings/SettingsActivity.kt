@@ -1,0 +1,237 @@
+package com.serenetunnel.app.settings
+
+import android.app.AlertDialog
+import android.content.Intent
+import android.net.Uri
+import android.os.Bundle
+import android.widget.TextView
+import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AppCompatDelegate
+import androidx.appcompat.widget.SwitchCompat
+import androidx.core.content.ContextCompat
+import androidx.core.os.LocaleListCompat
+import androidx.core.view.WindowCompat
+import com.serenetunnel.app.BuildConfig
+import com.serenetunnel.app.R
+import com.serenetunnel.app.ui.SystemBars
+import com.serenetunnel.app.update.AppUpdateCoordinator
+import com.serenetunnel.app.update.AppUpdateDestination
+import com.google.android.material.button.MaterialButton
+
+class SettingsActivity : AppCompatActivity() {
+
+    private val prefsName = "barka_settings"
+    private lateinit var updateCoordinator: AppUpdateCoordinator
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_settings)
+        SystemBars.apply(this)
+        applySystemBars()
+        updateCoordinator = AppUpdateCoordinator(this)
+
+        val prefs = getSharedPreferences(prefsName, MODE_PRIVATE)
+        prefs.edit()
+            .remove("auto_launch")
+            .remove("auto_vpn")
+            .remove("protocol")
+            .remove("default_port")
+            .apply()
+
+        findViewById<TextView>(R.id.aboutValue).text =
+            getString(R.string.settings_about_format, BuildConfig.VERSION_NAME)
+
+        val autoPingSwitch = findViewById<SwitchCompat>(R.id.autoPingSwitch)
+        val themeButton = findViewById<MaterialButton>(R.id.themeButton)
+        val languageButton = findViewById<MaterialButton>(R.id.languageButton)
+
+        findViewById<android.view.View>(R.id.settingsBackButton).setOnClickListener {
+            finish()
+        }
+
+        autoPingSwitch.isChecked = prefs.getBoolean("auto_ping", true)
+        autoPingSwitch.setOnCheckedChangeListener { _, checked ->
+            prefs.edit().putBoolean("auto_ping", checked).apply()
+        }
+
+        fun refreshDynamicLabels() {
+            val currentTheme = normalizedTheme(
+                prefs.getString("theme", "light") ?: "light"
+            )
+            themeButton.text = getString(
+                R.string.settings_theme_format,
+                themeLabel(currentTheme)
+            )
+            val language = prefs.getString("language", "fr") ?: "fr"
+            languageButton.text = getString(
+                R.string.settings_language_format,
+                getString(when (language) {
+                    "en" -> R.string.language_english
+                    "es" -> R.string.language_spanish
+                    "ar" -> R.string.language_arabic
+                    else -> R.string.language_french
+                })
+            )
+        }
+
+        themeButton.setOnClickListener {
+            showSingleChoiceDialog(
+                title = getString(R.string.settings_choose_theme),
+                values = arrayOf(
+                    getString(R.string.theme_light),
+                    getString(R.string.theme_dark),
+                    getString(R.string.theme_system)
+                ),
+                selected = themeLabel(
+                    normalizedTheme(prefs.getString("theme", "light") ?: "light")
+                )
+            ) { value ->
+                val theme = when (value) {
+                    getString(R.string.theme_dark) -> "dark"
+                    getString(R.string.theme_system) -> "system"
+                    else -> "light"
+                }
+                prefs.edit().putString("theme", theme).apply()
+                val mode = when (theme) {
+                    "dark" -> AppCompatDelegate.MODE_NIGHT_YES
+                    "system" -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
+                    else -> AppCompatDelegate.MODE_NIGHT_NO
+                }
+                AppCompatDelegate.setDefaultNightMode(mode)
+                refreshDynamicLabels()
+            }
+        }
+
+        languageButton.setOnClickListener {
+            val tags = arrayOf("fr", "en", "es", "ar")
+            val labels = arrayOf(getString(R.string.language_french), getString(R.string.language_english),
+                getString(R.string.language_spanish), getString(R.string.language_arabic))
+            val currentLanguage = prefs.getString("language", "fr") ?: "fr"
+            showSingleChoiceDialog(
+                title = getString(R.string.settings_choose_language),
+                values = labels,
+                selected = labels[tags.indexOf(currentLanguage).coerceAtLeast(0)]
+            ) { value ->
+                val language = tags[labels.indexOf(value).coerceAtLeast(0)]
+                prefs.edit().putString("language", language).commit()
+                AppCompatDelegate.setApplicationLocales(
+                    LocaleListCompat.forLanguageTags(language)
+                )
+            }
+        }
+
+        refreshDynamicLabels()
+        findViewById<MaterialButton>(R.id.rateAppButton).setOnClickListener { rateApplication() }
+
+        findViewById<MaterialButton>(R.id.vpnSettingsButton).setOnClickListener {
+            startActivity(Intent(this, com.serenetunnel.app.consumption.ConsumptionActivity::class.java))
+        }
+
+        findViewById<android.view.View>(R.id.vpnShareButton).setOnClickListener {
+            startActivity(Intent(this, com.serenetunnel.app.tools.VpnToolsActivity::class.java).putExtra("share", true))
+        }
+        findViewById<android.view.View>(R.id.vpnSpeedButton).setOnClickListener {
+            startActivity(Intent(this, com.serenetunnel.app.tools.VpnToolsActivity::class.java))
+        }
+
+        findViewById<MaterialButton>(R.id.checkUpdateButton).setOnClickListener {
+            updateCoordinator.check(showNoUpdate = true, force = true)
+        }
+
+        findViewById<MaterialButton>(R.id.shareAppButton).setOnClickListener {
+            shareApplication()
+        }
+
+        findViewById<MaterialButton>(R.id.telegramBotButton).setOnClickListener {
+            try { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/rhaffshopbot"))) }
+            catch (_: android.content.ActivityNotFoundException) {
+                android.widget.Toast.makeText(this, R.string.browser_unavailable, android.widget.Toast.LENGTH_LONG).show()
+            }
+        }
+
+        findViewById<MaterialButton>(R.id.telegramChannelButton).setOnClickListener {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/barkaTunnel")))
+        }
+
+        findViewById<MaterialButton>(R.id.shopButton).setOnClickListener {
+            try {
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://rhaffservice.com/")))
+            } catch (_: android.content.ActivityNotFoundException) {
+                android.widget.Toast.makeText(this, R.string.browser_unavailable, android.widget.Toast.LENGTH_LONG).show()
+            }
+        }
+
+    }
+
+    private fun rateApplication() {
+        val uri = Uri.parse("https://apkpure.com/reviews/com.serenetunnel.app")
+        try { startActivity(Intent(Intent.ACTION_VIEW, uri).setPackage("com.android.chrome")) }
+        catch (_: android.content.ActivityNotFoundException) {
+            try { startActivity(Intent(Intent.ACTION_VIEW, uri)) }
+            catch (_: android.content.ActivityNotFoundException) {
+                android.widget.Toast.makeText(this, R.string.browser_unavailable, android.widget.Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        applySystemBars()
+    }
+
+    private fun shareApplication() {
+        val apkUrl = AppUpdateDestination.APKPURE_URL
+        val text = getString(R.string.share_download_format, apkUrl)
+        val sendIntent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_SUBJECT, "Barka Tunnel")
+            putExtra(Intent.EXTRA_TEXT, text)
+        }
+        startActivity(
+            Intent.createChooser(sendIntent, getString(R.string.share_app_chooser))
+        )
+    }
+
+    private fun showSingleChoiceDialog(
+        title: String,
+        values: Array<String>,
+        selected: String,
+        onSelected: (String) -> Unit
+    ) {
+        var checkedIndex = values.indexOf(selected).coerceAtLeast(0)
+
+        AlertDialog.Builder(this)
+            .setTitle(title)
+            .setSingleChoiceItems(values, checkedIndex) { _, which ->
+                checkedIndex = which
+            }
+            .setPositiveButton(R.string.save) { _, _ ->
+                onSelected(values[checkedIndex])
+            }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
+    }
+
+    private fun normalizedTheme(value: String): String = when (value) {
+        "dark", "Sombre" -> "dark"
+        "system", "Système" -> "system"
+        else -> "light"
+    }
+
+    private fun themeLabel(value: String): String = when (value) {
+        "dark" -> getString(R.string.theme_dark)
+        "system" -> getString(R.string.theme_system)
+        else -> getString(R.string.theme_light)
+    }
+
+    private fun applySystemBars() {
+        window.statusBarColor = ContextCompat.getColor(this, R.color.barka_background)
+        window.navigationBarColor = ContextCompat.getColor(this, R.color.barka_background)
+        val nightMode = resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK
+        val lightIcons = nightMode != android.content.res.Configuration.UI_MODE_NIGHT_YES
+        WindowCompat.getInsetsController(window, window.decorView)?.apply {
+            isAppearanceLightStatusBars = lightIcons
+            isAppearanceLightNavigationBars = lightIcons
+        }
+    }
+}
