@@ -35,7 +35,7 @@ def test_bad_admin_tokens_cannot_lock_out_valid_admin(env):
 def test_guessing_activation_and_password_is_limited(env):
     *_, main, account = env
     with client_for(main) as client:
-        body = {'device_id':'security-device-abcdefghijkl','code':'BARKA-AAAA-BBBB-CCCC'}
+        body = {'device_id':'security-device-abcdefghijkl','code':'SERENE-AAAA-BBBB-CCCC'}
         for _ in range(20): assert client.post('/v1/activation/redeem', json=body).status_code == 200
         response = client.post('/v1/activation/redeem', json=body)
         assert response.status_code == 429 and int(response.headers['retry-after']) > 0
@@ -55,13 +55,13 @@ def test_cross_origin_mutations_denied_and_sensitive_responses_not_cached(env):
         assert "base-uri 'none'" in client.get('/admin').headers['content-security-policy']
 
 
-@pytest.mark.parametrize('field,value', [('amount','1'),('amount','NaN'),('currency','EUR'),('id','other'),('metadata',{'barka_reference':'other'})])
+@pytest.mark.parametrize('field,value', [('amount','1'),('amount','NaN'),('currency','EUR'),('id','other'),('metadata',{'serene_reference':'other'})])
 def test_forged_paid_fields_do_not_grant_access(env, field, value):
     db, services, *_ = env
     from app import saspay
     reference = services.create_payment_record('security-payment-abcdefgh', '24h')
     services.update_payment_created(reference, 'provider-security-id', 'https://checkout.example')
-    payload = {'id':'provider-security-id','status':'PAID','amount':'300.00','currency':'XOF','metadata':{'barka_reference':reference}}
+    payload = {'id':'provider-security-id','status':'PAID','amount':'300.00','currency':'XOF','metadata':{'serene_reference':reference}}
     saspay.validate_paid_session('provider-security-id', payload)
     payload[field] = value
     with pytest.raises(saspay.SasPayError): saspay.validate_paid_session('provider-security-id', payload)

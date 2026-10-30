@@ -89,7 +89,7 @@ def test_payment_code_is_deterministic(tmp_path):
     code1 = services.issue_activation_code(source, "1w", reference)
     code2 = services.issue_activation_code(source, "1w", reference)
     assert code1 == code2
-    assert code1.startswith("BARKA-")
+    assert code1.startswith("SERENE-")
 
 
 def test_vpn_profiles_are_seeded_and_secrets_require_access(tmp_path):
@@ -193,7 +193,7 @@ def test_app_update_is_server_controlled(tmp_path):
         "enabled": True,
         "latest_version_code": 7,
         "latest_version_name": "1.7.0",
-        "apk_url": "https://downloads.example.test/BarkaTunnel.apk",
+        "apk_url": "https://downloads.example.test/SereneTunnel.apk",
         "message": "Mise à jour de sécurité.",
         "mandatory": True,
     })
@@ -209,7 +209,7 @@ def test_app_update_is_server_controlled(tmp_path):
     assert current_client["update_available"] is False
     assert current_client["force_update"] is False
     assert current_client["updated_at"] == saved["updated_at"]
-    assert current_client["apk_url"] == "https://downloads.example.test/BarkaTunnel.apk"
+    assert current_client["apk_url"] == "https://downloads.example.test/SereneTunnel.apk"
 
     removed = app_updates.remove_app_update()
     assert removed["enabled"] is False
@@ -814,7 +814,7 @@ def test_update_notifications_only_target_older_installed_versions(tmp_path):
         updates.upsert_app_update({
             "enabled": True, "mandatory": mandatory,
             "latest_version_code": 105, "latest_version_name": "2.0.3.6",
-            "apk_url": "https://downloads.example.test/BarkaTunnel.apk",
+            "apk_url": "https://downloads.example.test/SereneTunnel.apk",
             "message": "Nouvelle version",
         })
         for installed, expected in ((68, True), (104, True), (105, False), (106, False)):

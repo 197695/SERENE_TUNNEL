@@ -131,7 +131,7 @@ def test_redeem_unused_slots_remain_available_after_first_usage_expired(env):
 def test_update_visibility_old_current_new_and_no_cache(env,mandatory):
     _,_,_,_,_,main,_=env
     with client_for(main) as client:
-        assert client.post('/v1/admin/app-update',json={'enabled':True,'mandatory':mandatory,'latest_version_code':106,'latest_version_name':'2.0.3.6','apk_url':'https://apkpure.com/p/com.barkatunnel.app','message':'Nouvelle version'}).status_code==200
+        assert client.post('/v1/admin/app-update',json={'enabled':True,'mandatory':mandatory,'latest_version_code':106,'latest_version_name':'2.0.3.6','apk_url':'https://apkpure.com/p/com.serenetunnel.app','message':'Nouvelle version'}).status_code==200
         for version,expected in [(1,True),(68,True),(105,True),(106,False),(107,False)]:
             r=client.get('/v1/app/update',params={'version_code':version})
             assert r.status_code==200 and 'no-store' in r.headers['cache-control']
@@ -158,7 +158,7 @@ def test_saspay_pending_paid_code_once_and_device_ownership(env,monkeypatch):
         body={'device_id':'device-payment-123','payment_reference':ref,'sync_provider':True}
         one=client.post('/v1/payments/status',json=body).json()
         two=client.post('/v1/payments/status',json=body).json()
-        assert one['status']=='paid' and one['activation_code'].startswith('BARKA-')
+        assert one['status']=='paid' and one['activation_code'].startswith('SERENE-')
         assert one['activation_code']==two['activation_code']
         with db.connect() as cx:assert cx.execute('SELECT COUNT(*) FROM activation_codes').fetchone()[0]==1
         assert client.post('/v1/webhooks/saspay',json={}).status_code==401

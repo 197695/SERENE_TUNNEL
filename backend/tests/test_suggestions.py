@@ -17,7 +17,7 @@ def client(tmp_path):
 
 ADMIN = {'X-Admin-Token': 'test-admin-token'}
 
-def body(message='Une idée pour Barka Tunnel'):
+def body(message='Une idée pour Serene Tunnel'):
     return {'device_id': 'suggestion-device-12345', 'request_id': str(uuid4()), 'message': message}
 
 def test_suggestion_switch_persistence_and_server_enforcement(client):
