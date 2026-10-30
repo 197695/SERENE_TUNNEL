@@ -1,1 +1,16 @@
-
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="serene_blue">#5B9CFF</color>
+    <color name="serene_blue_light">#17233A</color>
+    <color name="serene_background">#0F172A</color>
+    <color name="serene_card">#172033</color>
+    <color name="serene_text">#F8FAFC</color>
+    <color name="serene_text_secondary">#AAB7CC</color>
+    <color name="serene_border">#334155</color>
+    <color name="serene_green">#22C55E</color>
+    <color name="serene_red">#F87171</color>
+    <color name="serene_network_valid_bg">#123524</color>
+    <color name="serene_network_invalid_bg">#3F1D24</color>
+    <color name="white">#FFFFFF</color>
+    <color name="black">#000000</color>
+</resources>
