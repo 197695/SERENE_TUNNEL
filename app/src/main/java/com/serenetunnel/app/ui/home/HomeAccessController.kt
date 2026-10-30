@@ -4,7 +4,7 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import com.serenetunnel.app.access.AccessCoordinator
-import com.serenetunnel.app.backend.BarkaBackendClient
+import com.serenetunnel.app.backend.SereneBackendClient
 import com.serenetunnel.app.network.ApiResult
 import com.serenetunnel.app.trial.TrialStatus
 
