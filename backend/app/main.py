@@ -1,0 +1,828 @@
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+import uuid
+from contextlib import asynccontextmanager
+
+from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response, status
+from fastapi.responses import FileResponse, HTMLResponse
+
+from .admin_ops import (
+    admin_stats_extended,
+    delete_activation_code,
+    delete_redeem_code,
+    list_activation_codes,
+    list_redeem_codes,
+    reactivate_activation_code,
+    reactivate_redeem_code,
+    reset_admin_stats,
+    revoke_activation_code,
+    revoke_redeem_code,
+)
+from .panel_management import FilterRequest, filtered_codes, reseller_details
+from .custom_subscriptions import CustomSubscriptionRequest, issue_custom_subscription
+from .admin_panel import ADMIN_PANEL_HTML
+from .reseller_panel import RESELLER_PANEL_HTML
+from .app_updates import (
+    get_app_update_admin,
+    get_app_update_for_client,
+    remove_app_update,
+    release_apk_path,
+    release_apk_url,
+    upsert_app_update,
+)
+
+from .request_protection import protect_request
+from .config import settings
+from .db import connect, init_db
+from .saspay import SasPayError, create_payment, get_payment
+from .models import (
+    AccessResponse,
+    ActivationRequest,
+    ActivationResponse,
+    AdminCodeRequest,
+    AdminCodeResponse,
+    AdminRedeemCodeListItem,
+    AdminRedeemCodeRequest,
+    AdminRedeemCodeResponse,
+    DeviceRequest,
+    PaymentStartRequest,
+    PaymentStartResponse,
+    PaymentStatusRequest,
+    PaymentStatusResponse,
+    PlanResponse,
+    TrialStartResponse,
+    AdminCodeListItem,
+    AdminCodeRevokeRequest,
+    AdminCodeRevokeResponse,
+    AdminResellerCreateRequest,
+    AdminResellerExpiryRequest,
+    AdminStatsResetRequest,
+    AppUpdateAdminResponse,
+    AppUpdateAdminUpsert,
+    AppUpdateResponse,
+    ResellerGenerateSubscriptionRequest,
+    ResellerGenerateTestRequest,
+    ResellerLoginRequest,
+    AdminVpnProfileResponse,
+    AdminVpnProfileUpsert,
+    VpnProfileCatalogItem,
+    VpnProfileRequest,
+    VpnProfileResponse,
+)
+from .plans import PLANS, get_plan
+from .pricing import router as pricing_router, public_plans, create_subscription_quote
+from .security import require_admin, verify_saspay_signature
+from .resellers import (
+    create_reseller,
+    reseller_credentials,
+    reset_reseller_password,
+    renew_reseller_month,
+    delete_reseller,
+    delete_reseller_code,
+    freeze_reseller,
+    generate_reseller_subscription,
+    generate_reseller_test,
+    list_reseller_codes,
+    list_resellers,
+    login_reseller,
+    logout_reseller,
+    public_reseller_account,
+    reactivate_reseller,
+    reseller_dashboard_stats,
+    reset_reseller_stats,
+    require_reseller,
+    update_reseller_expiry,
+)
+from .services import (
+    access_state,
+    activation_code_for_payment,
+    create_payment_record,
+    get_payment_by_any_reference,
+    get_payment_for_device,
+    issue_activation_code,
+    issue_redeem_code,
+    mark_payment_error,
+    mark_payment_failed,
+    mark_payment_paid,
+    mark_connection_attempt,
+    pending_payments_for_reconciliation,
+    recent_pending_payment,
+    redeem_activation_code,
+    register_webhook_event,
+    start_trial,
+    update_payment_created,
+)
+from .vpn_profiles import (
+    get_profile_for_device,
+    list_admin_profiles,
+    list_catalog,
+    upsert_admin_profile,
+)
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    settings.validate_runtime()
+    init_db()
+    yield
+
+
+app = FastAPI(
+    title="Barka Tunnel Backend",
+    version="1.1.0",
+    lifespan=lifespan,
+    dependencies=[Depends(protect_request)],
+)
+
+
+@app.middleware("http")
+async def response_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    if request.url.path.startswith(("/v1/admin/", "/v1/reseller", "/v1/payments/", "/v1/vpn/profile", "/v1/access/", "/v1/activation/")):
+        response.headers["Cache-Control"] = "no-store"
+    return response
+
+
+from .reseller_purchases import router as reseller_purchase_router
+app.include_router(reseller_purchase_router)
+app.include_router(pricing_router)
+from .vpn_drafts import router as vpn_drafts_router
+app.include_router(vpn_drafts_router)
+from .apk_release import router as apk_release_router
+app.include_router(apk_release_router)
+from .suggestions import router as suggestions_router
+app.include_router(suggestions_router)
+from .support_config import router as support_router
+from .admin_reseller_session import router as admin_reseller_session_router
+app.include_router(support_router)
+app.include_router(admin_reseller_session_router)
+
+
+@app.get("/health")
+def health():
+    return {
+        "ok": True,
+        "service": "barka-tunnel-backend",
+        "version": "1.1.0",
+        "payment_configured": settings.payment_ready,
+    }
+
+
+@app.get("/v1/plans", response_model=list[PlanResponse])
+def plans(response: Response):
+    response.headers["Cache-Control"] = "no-store"
+    return public_plans()
+
+@app.get("/v1/app/update", response_model=AppUpdateResponse)
+def app_update(response: Response, version_code: int = 1):
+    response.headers["Cache-Control"] = "no-store, max-age=0"
+    if version_code < 1:
+        raise HTTPException(status_code=400, detail="Version Android invalide")
+    return get_app_update_for_client(version_code)
+
+
+
+@app.post("/v1/access/check", response_model=AccessResponse)
+def check_access(body: DeviceRequest):
+    return access_state(body.device_id)
+
+
+@app.post("/v1/device/connection-attempt")
+def device_connection_attempt(body: DeviceRequest):
+    mark_connection_attempt(body.device_id)
+    return {"ok": True}
+
+
+@app.post("/v1/trial/start", response_model=TrialStartResponse)
+def trial_start(body: DeviceRequest):
+    access, started_now, message = start_trial(body.device_id)
+    return TrialStartResponse(
+        **access,
+        started_now=started_now,
+        message=message,
+    )
+
+
+@app.post("/v1/payments/start", response_model=PaymentStartResponse)
+async def payment_start(body: PaymentStartRequest):
+    plan = get_plan(body.plan_id)
+    if not plan:
+        raise HTTPException(status_code=400, detail="Offre inconnue")
+
+    existing = recent_pending_payment(body.device_id, body.plan_id)
+    if existing and (body.expected_amount is None or existing["amount"] == body.expected_amount):
+        return PaymentStartResponse(
+            success=True,
+            checkout_url=existing["checkout_url"],
+            payment_reference=existing["reference"],
+            status="pending",
+            amount=existing["amount"],
+            currency=existing["currency"],
+        )
+
+    reference, quoted_amount = create_subscription_quote(body.device_id, body.plan_id, body.expected_amount)
+
+    try:
+        provider = await create_payment(
+            amount=quoted_amount,
+            currency=plan["currency"],
+            description=f"Barka Tunnel — {plan['label']}",
+            external_reference=reference,
+            customer_name=body.customer_name,
+            customer_email=body.customer_email,
+        )
+    except SasPayError as exc:
+        mark_payment_error(reference, str(exc))
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=str(exc),
+        ) from exc
+
+    update_payment_created(
+        reference,
+        str(provider["id"]),
+        str(provider["checkout_url"]),
+    )
+
+    return PaymentStartResponse(
+        success=True,
+        checkout_url=str(provider["checkout_url"]),
+        payment_reference=reference,
+        status="pending",
+        amount=quoted_amount,
+        currency=plan["currency"],
+    )
+
+
+@app.post("/v1/payments/status", response_model=PaymentStatusResponse)
+async def payment_status(body: PaymentStatusRequest):
+    payment = get_payment_for_device(body.payment_reference, body.device_id)
+    if not payment:
+        raise HTTPException(status_code=404, detail="Paiement introuvable")
+
+    current_status = payment["status"]
+
+    if current_status == "pending" and body.sync_provider and settings.payment_ready:
+        provider_lookup = payment["provider_payment_id"] or payment["reference"]
+        try:
+            remote = await get_payment(str(provider_lookup))
+            remote_status = str(remote.get("status", "")).upper()
+            if remote_status == "PAID":
+                mark_payment_paid(payment["reference"])
+                current_status = "paid"
+            elif remote_status in {"CANCELLED", "EXPIRED"}:
+                mark_payment_failed(payment["reference"])
+                current_status = "failed"
+        except SasPayError:
+            # Le webhook reste la source principale. Une erreur de synchronisation
+            # ne doit pas transformer un paiement en échec.
+            pass
+
+    code = (
+        mark_payment_paid(body.payment_reference)
+        if current_status == "paid"
+        else None
+    )
+
+    messages = {
+        "creating": "Création du paiement en cours.",
+        "pending": "Paiement en attente de confirmation.",
+        "paid": "Paiement confirmé. Votre code est prêt.",
+        "failed": "Paiement refusé, annulé ou expiré.",
+        "error": "Le paiement n'a pas pu être créé.",
+    }
+
+    return PaymentStatusResponse(
+        payment_reference=body.payment_reference,
+        status=current_status,
+        activation_code=code,
+        message=messages.get(current_status, "Statut inconnu."),
+    )
+
+
+@app.post("/v1/activation/redeem", response_model=ActivationResponse)
+def activation_redeem(body: ActivationRequest):
+    success, message, access = redeem_activation_code(body.device_id, body.code)
+    return ActivationResponse(success=success, message=message, access=access)
+
+
+@app.get("/v1/vpn/catalog", response_model=list[VpnProfileCatalogItem])
+def vpn_catalog():
+    # Ce catalogue n'expose aucune configuration sensible.
+    return list_catalog()
+
+
+@app.post("/v1/vpn/profile", response_model=VpnProfileResponse)
+def vpn_profile(body: VpnProfileRequest):
+    try:
+        return get_profile_for_device(body.device_id, body.network_id)
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except LookupError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@app.get(
+    "/v1/admin/vpn/profiles",
+    response_model=list[AdminVpnProfileResponse],
+    dependencies=[Depends(require_admin)],
+)
+def admin_vpn_profiles():
+    return list_admin_profiles()
+
+
+@app.post(
+    "/v1/admin/vpn/profiles",
+    response_model=AdminVpnProfileResponse,
+    dependencies=[Depends(require_admin)],
+)
+def admin_vpn_profile_upsert(body: AdminVpnProfileUpsert):
+    try:
+        return upsert_admin_profile(body.model_dump())
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+async def _reconcile_saspay_pending() -> dict[str, int]:
+    checked = paid = failed = 0
+    for payment in pending_payments_for_reconciliation(limit=50):
+        provider_id = payment["provider_payment_id"]
+        if not provider_id:
+            continue
+        try:
+            remote = await get_payment(str(provider_id))
+        except SasPayError:
+            continue
+        checked += 1
+        remote_status = str(remote.get("status", "")).upper()
+        if remote_status == "PAID":
+            mark_payment_paid(payment["reference"])
+            paid += 1
+        elif remote_status in {"CANCELLED", "EXPIRED"}:
+            mark_payment_failed(payment["reference"])
+            failed += 1
+    return {"checked": checked, "paid": paid, "failed": failed}
+
+
+@app.post("/v1/webhooks/saspay")
+async def saspay_webhook(
+    request: Request,
+    x_webhook_signature: str | None = Header(default=None),
+    x_webhook_timestamp: str | None = Header(default=None),
+    x_webhook_event: str | None = Header(default=None),
+):
+    raw = await request.body()
+    if not verify_saspay_signature(raw, x_webhook_signature, x_webhook_timestamp):
+        raise HTTPException(status_code=401, detail="Signature webhook SasPay invalide")
+    try:
+        payload = json.loads(raw.decode("utf-8"))
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail="JSON webhook invalide") from exc
+    if not isinstance(payload, dict) or not isinstance(payload.get("data", {}), dict):
+        raise HTTPException(400, "Structure webhook invalide")
+    event_type = str(payload.get("event") or "").strip()
+    if x_webhook_event and event_type and x_webhook_event.strip() != event_type:
+        raise HTTPException(status_code=400, detail="Type d'événement webhook incohérent")
+    data = payload.get("data") or {}
+    provider_event_id = str(data.get("id") or data.get("reference") or "")
+    event_id = (
+        f"saspay:{event_type}:{provider_event_id}"
+        if event_type or provider_event_id
+        else f"saspay:sha256:{hashlib.sha256(raw).hexdigest()}"
+    )
+    if not register_webhook_event(event_id):
+        return {"ok": True, "duplicate": True}
+    reconciliation = {"checked": 0, "paid": 0, "failed": 0}
+    if event_type.startswith("transaction."):
+        reconciliation = await _reconcile_saspay_pending()
+    return {"ok": True, "event": event_type, "reconciliation": reconciliation}
+
+
+@app.post(
+    "/v1/admin/codes",
+    response_model=AdminCodeResponse,
+    dependencies=[Depends(require_admin)],
+)
+def admin_codes(body: AdminCodeRequest):
+    codes: list[str] = []
+    for _ in range(body.count):
+        source_ref = f"MANUAL:{uuid.uuid4().hex}"
+        codes.append(issue_activation_code(source_ref, body.plan_id))
+    return AdminCodeResponse(plan_id=body.plan_id, codes=codes)
+
+
+@app.post("/v1/admin/codes/custom", response_model=AdminCodeResponse, dependencies=[Depends(require_admin)])
+def admin_custom_subscription(body: CustomSubscriptionRequest):
+    plan_id, code = issue_custom_subscription(body.days)
+    return AdminCodeResponse(plan_id=plan_id, codes=[code])
+
+
+@app.post(
+    "/v1/admin/redeem-codes",
+    response_model=AdminRedeemCodeResponse,
+    dependencies=[Depends(require_admin)],
+)
+def admin_redeem_codes(body: AdminRedeemCodeRequest):
+    duration_seconds = max(1, int(round(body.duration_hours * 60 * 60)))
+    codes: list[str] = []
+    for _ in range(body.count):
+        source_ref = f"REDEEM:{uuid.uuid4().hex}"
+        codes.append(issue_redeem_code(source_ref, duration_seconds, body.max_users))
+    return AdminRedeemCodeResponse(
+        duration_seconds=duration_seconds,
+        max_users=body.max_users,
+        codes=codes,
+    )
+
+
+@app.get(
+    "/v1/admin/redeem-codes",
+    response_model=list[AdminRedeemCodeListItem],
+    dependencies=[Depends(require_admin)],
+)
+def admin_redeem_codes_list(limit: int = 100, offset: int = 0):
+    return list_redeem_codes(limit, offset=offset)
+
+
+@app.post(
+    "/v1/admin/redeem-codes/revoke",
+    response_model=AdminCodeRevokeResponse,
+    dependencies=[Depends(require_admin)],
+)
+def admin_redeem_code_revoke(body: AdminCodeRevokeRequest):
+    success, message = revoke_redeem_code(body.code)
+    return AdminCodeRevokeResponse(success=success, message=message)
+
+
+@app.post(
+    "/v1/admin/redeem-codes/reactivate",
+    response_model=AdminCodeRevokeResponse,
+    dependencies=[Depends(require_admin)],
+)
+def admin_redeem_code_reactivate(body: AdminCodeRevokeRequest):
+    success, message = reactivate_redeem_code(body.code)
+    return AdminCodeRevokeResponse(success=success, message=message)
+
+
+@app.post(
+    "/v1/admin/redeem-codes/delete",
+    response_model=AdminCodeRevokeResponse,
+    dependencies=[Depends(require_admin)],
+)
+def admin_redeem_code_delete(body: AdminCodeRevokeRequest):
+    success, message = delete_redeem_code(body.code)
+    return AdminCodeRevokeResponse(success=success, message=message)
+
+
+@app.get("/v1/admin/stats", dependencies=[Depends(require_admin)])
+def admin_stats():
+    return admin_stats_extended()
+
+
+@app.post("/v1/admin/stats/reset", dependencies=[Depends(require_admin)])
+def admin_stats_reset(body: AdminStatsResetRequest):
+    reset_at = reset_admin_stats()
+    return {
+        "success": True,
+        "message": "Les statistiques du tableau de bord ont été réinitialisées sans supprimer les données métier.",
+        "reset_at": reset_at,
+        "stats": admin_stats_extended(),
+    }
+
+
+@app.get(
+    "/v1/admin/codes",
+    response_model=list[AdminCodeListItem],
+    dependencies=[Depends(require_admin)],
+)
+def admin_codes_list(limit: int = 100, offset: int = 0):
+    return list_activation_codes(limit, offset=offset, own_only=True)
+
+
+@app.post(
+    "/v1/admin/codes/revoke",
+    response_model=AdminCodeRevokeResponse,
+    dependencies=[Depends(require_admin)],
+)
+def admin_code_revoke(body: AdminCodeRevokeRequest):
+    success, message = revoke_activation_code(body.code)
+    return AdminCodeRevokeResponse(success=success, message=message)
+
+
+@app.post(
+    "/v1/admin/codes/reactivate",
+    response_model=AdminCodeRevokeResponse,
+    dependencies=[Depends(require_admin)],
+)
+def admin_code_reactivate(body: AdminCodeRevokeRequest):
+    success, message = reactivate_activation_code(body.code)
+    return AdminCodeRevokeResponse(success=success, message=message)
+
+
+@app.post(
+    "/v1/admin/codes/delete",
+    response_model=AdminCodeRevokeResponse,
+    dependencies=[Depends(require_admin)],
+)
+def admin_code_delete(body: AdminCodeRevokeRequest):
+    success, message = delete_activation_code(body.code)
+    return AdminCodeRevokeResponse(success=success, message=message)
+
+
+@app.get(
+    "/v1/admin/resellers",
+    dependencies=[Depends(require_admin)],
+)
+def admin_resellers_list():
+    return list_resellers()
+
+
+@app.post(
+    "/v1/admin/resellers",
+    dependencies=[Depends(require_admin)],
+)
+def admin_reseller_create(body: AdminResellerCreateRequest):
+    try:
+        return create_reseller(body.username, body.expires_at)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post(
+    "/v1/admin/resellers/{reseller_id}/freeze",
+    dependencies=[Depends(require_admin)],
+)
+def admin_reseller_freeze(reseller_id: int):
+    try:
+        return freeze_reseller(reseller_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.post(
+    "/v1/admin/resellers/{reseller_id}/reactivate",
+    dependencies=[Depends(require_admin)],
+)
+def admin_reseller_reactivate(reseller_id: int):
+    try:
+        return reactivate_reseller(reseller_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post(
+    "/v1/admin/resellers/{reseller_id}/expiry",
+    dependencies=[Depends(require_admin)],
+)
+def admin_reseller_expiry(reseller_id: int, body: AdminResellerExpiryRequest):
+    try:
+        return update_reseller_expiry(reseller_id, body.expires_at)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.delete(
+    "/v1/admin/resellers/{reseller_id}",
+    dependencies=[Depends(require_admin)],
+)
+def admin_reseller_delete(reseller_id: int, body: AdminStatsResetRequest):
+    try:
+        delete_reseller(reseller_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return {"success": True, "message": "Sous-panel et codes supprimés. Les accès associés sont révoqués."}
+
+
+@app.get("/v1/admin/resellers/{reseller_id}/credentials", dependencies=[Depends(require_admin)])
+def admin_reseller_credentials(reseller_id: int, response: Response):
+    response.headers["Cache-Control"] = "no-store"
+    try:
+        return reseller_credentials(reseller_id)
+    except ValueError as exc:
+        raise HTTPException(404, str(exc)) from exc
+
+
+@app.post("/v1/admin/resellers/{reseller_id}/password", dependencies=[Depends(require_admin)])
+def admin_reseller_password(reseller_id: int, body: AdminStatsResetRequest, response: Response):
+    response.headers["Cache-Control"] = "no-store"
+    try:
+        return reset_reseller_password(reseller_id)
+    except ValueError as exc:
+        raise HTTPException(404, str(exc)) from exc
+
+
+@app.post("/v1/admin/resellers/{reseller_id}/renew", dependencies=[Depends(require_admin)])
+def admin_reseller_renew(reseller_id: int, body: AdminStatsResetRequest):
+    try:
+        return renew_reseller_month(reseller_id)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+
+@app.get("/v1/admin/resellers/{reseller_id}/codes", dependencies=[Depends(require_admin)], response_model=list[AdminCodeListItem])
+def admin_reseller_codes(reseller_id: int, limit: int = 100, offset: int = 0):
+    return list_reseller_codes(reseller_id, limit, offset)
+
+
+@app.post("/v1/reseller/login")
+def reseller_login(body: ResellerLoginRequest, request: Request):
+    try:
+        return login_reseller(body.username, body.password, request.client.host if request.client else None)
+    except ValueError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
+
+
+@app.post("/v1/reseller/logout")
+def reseller_logout(
+    authorization: str | None = Header(default=None),
+    _: dict = Depends(require_reseller),
+):
+    logout_reseller(authorization)
+    return {"success": True}
+
+
+@app.get("/v1/reseller/account")
+def reseller_account(account: dict = Depends(require_reseller)):
+    return public_reseller_account(account)
+
+
+@app.get("/v1/reseller/stats")
+def reseller_stats(account: dict = Depends(require_reseller)):
+    return reseller_dashboard_stats(int(account["id"]))
+
+
+@app.post("/v1/reseller/stats/reset")
+def reseller_stats_reset(body: AdminStatsResetRequest, account: dict = Depends(require_reseller)):
+    reset_at = reset_reseller_stats(int(account["id"]))
+    return {"success": True, "reset_at": reset_at, "message": "Vos compteurs ont été réinitialisés. Vos codes et leur historique sont conservés."}
+
+
+@app.get(
+    "/v1/reseller/codes",
+    response_model=list[AdminCodeListItem],
+)
+def reseller_codes_list(
+    limit: int = 200,
+    offset: int = 0,
+    account: dict = Depends(require_reseller),
+):
+    return list_reseller_codes(int(account["id"]), limit, offset)
+
+
+@app.post("/v1/reseller/codes/subscription")
+def reseller_subscription_code(
+    body: ResellerGenerateSubscriptionRequest,
+    account: dict = Depends(require_reseller),
+):
+    try:
+        code = generate_reseller_subscription(int(account["id"]), body.plan_id)
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    return {"plan_id": body.plan_id, "code": code}
+
+
+@app.post("/v1/reseller/codes/test")
+def reseller_test_code(
+    body: ResellerGenerateTestRequest | None = None,
+    account: dict = Depends(require_reseller),
+):
+    hours = body.duration_hours if body is not None else 2
+    try:
+        code = generate_reseller_test(int(account["id"]), hours)
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    return {"plan_id": f"test_{hours}h", "duration_seconds": hours * 3600, "code": code}
+
+
+@app.post(
+    "/v1/reseller/codes/delete",
+    response_model=AdminCodeRevokeResponse,
+)
+def reseller_code_delete(
+    body: AdminCodeRevokeRequest,
+    account: dict = Depends(require_reseller),
+):
+    success, message = delete_reseller_code(int(account["id"]), body.code)
+    return AdminCodeRevokeResponse(success=success, message=message)
+
+
+@app.post("/v1/admin/codes/filter-preview", dependencies=[Depends(require_admin)])
+def admin_filter_preview(body: FilterRequest):
+    return filtered_codes(body)
+
+
+@app.post("/v1/admin/codes/delete-filtered", dependencies=[Depends(require_admin)])
+def admin_filter_delete(body: FilterRequest):
+    return filtered_codes(body, delete=True)
+
+
+@app.post("/v1/reseller/codes/filter-preview")
+def reseller_filter_preview(body: FilterRequest, account: dict = Depends(require_reseller)):
+    return filtered_codes(body, int(account["id"]))
+
+
+@app.post("/v1/reseller/codes/delete-filtered")
+def reseller_filter_delete(body: FilterRequest, account: dict = Depends(require_reseller)):
+    return filtered_codes(body, int(account["id"]), delete=True)
+
+
+@app.get("/v1/admin/resellers/{reseller_id}/details", dependencies=[Depends(require_admin)])
+def admin_reseller_details(reseller_id: int):
+    return reseller_details(reseller_id)
+
+
+@app.get(
+    "/v1/admin/app-update",
+    response_model=AppUpdateAdminResponse,
+    dependencies=[Depends(require_admin)],
+)
+def admin_app_update_get():
+    return get_app_update_admin()
+
+
+@app.post(
+    "/v1/admin/app-update",
+    response_model=AppUpdateAdminResponse,
+    dependencies=[Depends(require_admin)],
+)
+def admin_app_update_set(body: AppUpdateAdminUpsert):
+    try:
+        return upsert_app_update(body.model_dump())
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.delete(
+    "/v1/admin/app-update",
+    response_model=AppUpdateAdminResponse,
+    dependencies=[Depends(require_admin)],
+)
+def admin_app_update_remove():
+    return remove_app_update()
+
+
+@app.get("/downloads/BarkaTunnel.apk", include_in_schema=False)
+def download_barka_apk():
+    target = release_apk_path()
+    if not target.is_file():
+        raise HTTPException(status_code=404, detail="APK non publié")
+    return FileResponse(
+        target,
+        media_type="application/vnd.android.package-archive",
+        filename="BarkaTunnel.apk",
+        headers={"Cache-Control": "no-cache"},
+    )
+
+
+@app.get("/admin", response_class=HTMLResponse, include_in_schema=False)
+def admin_panel():
+    return HTMLResponse(
+        ADMIN_PANEL_HTML,
+        headers={
+            "Cache-Control": "no-store, max-age=0",
+            "Pragma": "no-cache",
+            "X-Content-Type-Options": "nosniff",
+            "Referrer-Policy": "no-referrer",
+            "Content-Security-Policy": (
+                "default-src 'self'; "
+                "style-src 'unsafe-inline'; "
+                "script-src 'unsafe-inline'; "
+                "img-src 'self' data:; "
+                "connect-src 'self'; "
+                "frame-ancestors 'none'; base-uri 'none'; object-src 'none'; form-action 'self'"
+            ),
+        },
+    )
+
+
+@app.get("/reseller", response_class=HTMLResponse, include_in_schema=False)
+def reseller_panel():
+    return HTMLResponse(
+        RESELLER_PANEL_HTML,
+        headers={
+            "Cache-Control": "no-store, max-age=0",
+            "Pragma": "no-cache",
+            "X-Content-Type-Options": "nosniff",
+            "Referrer-Policy": "no-referrer",
+            "Content-Security-Policy": (
+                "default-src 'self'; "
+                "style-src 'unsafe-inline'; "
+                "script-src 'unsafe-inline'; "
+                "img-src 'self' data:; "
+                "connect-src 'self'; "
+                "frame-ancestors 'none'; base-uri 'none'; object-src 'none'; form-action 'self'"
+            ),
+        },
+    )
+
+
+@app.get("/payment-return", response_class=HTMLResponse)
+async def payment_return(reference: str = ""):
+    from .payment_return import payment_return_response
+    return await payment_return_response(reference)
