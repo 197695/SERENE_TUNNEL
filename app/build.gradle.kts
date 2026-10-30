@@ -1,0 +1,93 @@
+plugins {
+    id("com.android.application")
+    id("org.jetbrains.kotlin.android")
+}
+
+android {
+    namespace = "com.serenetunnel.app"
+    compileSdk = 35
+
+    defaultConfig {
+        applicationId = "com.serenetunnel.app"
+        minSdk = 23
+        targetSdk = 35
+        versionCode = 135
+        versionName = "2.3.1.5"
+
+        ndk {
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+        }
+    }
+
+    val stableStoreFile = System.getenv("SERENE_SIGNING_STORE_FILE")
+    val stableStorePassword = System.getenv("SERENE_SIGNING_STORE_PASSWORD")
+    val stableKeyAlias = System.getenv("SERENE_SIGNING_KEY_ALIAS")
+    val stableKeyPassword = System.getenv("SERENE_SIGNING_KEY_PASSWORD")
+
+    signingConfigs {
+        create("stable") {
+            if (!stableStoreFile.isNullOrBlank()) {
+                storeFile = file(stableStoreFile)
+                storePassword = stableStorePassword
+                keyAlias = stableKeyAlias
+                keyPassword = stableKeyPassword
+            }
+        }
+    }
+
+    buildTypes {
+        getByName("debug") {
+            if (!stableStoreFile.isNullOrBlank()) {
+                signingConfig = signingConfigs.getByName("stable")
+            }
+        }
+        getByName("release") {
+            if (!stableStoreFile.isNullOrBlank()) {
+                signingConfig = signingConfigs.getByName("stable")
+            }
+        }
+    }
+
+    compileOptions {
+        isCoreLibraryDesugaringEnabled = true
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+    }
+
+    buildFeatures {
+        buildConfig = true
+    }
+
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+            keepDebugSymbols += setOf(
+                "**/libserene_xray.so",
+                "**/libserene_dnstt.so"
+            )
+        }
+    }
+}
+
+dependencies {
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.robolectric:robolectric:4.14.1")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("androidx.core:core-ktx:1.15.0")
+    implementation("androidx.appcompat:appcompat:1.7.0")
+    implementation("androidx.viewpager2:viewpager2:1.1.0")
+    implementation("androidx.work:work-runtime-ktx:2.10.0")
+    implementation("com.google.android.material:material:1.12.0")
+
+    implementation("com.wireguard.android:tunnel:1.0.20250531")
+    implementation("com.github.mwiede:jsch:0.2.24")
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.3")
+}
