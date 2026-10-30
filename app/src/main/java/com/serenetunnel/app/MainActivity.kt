@@ -1,0 +1,2014 @@
+package com.serenetunnel.app
+
+// BARKA_HOME_RUNTIME_V5_FINAL_NAV_NO_LOGIN
+
+import android.Manifest
+import android.animation.ValueAnimator
+import android.text.SpannableString
+import android.text.Spanned
+import android.text.style.ForegroundColorSpan
+import android.app.ActivityManager
+import android.app.Dialog
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Intent
+import android.content.SharedPreferences
+import android.content.pm.PackageManager
+import android.media.AudioAttributes
+import android.net.ConnectivityManager
+import android.net.LinkProperties
+import android.net.Network
+import android.net.NetworkRequest
+import android.net.Uri
+import android.net.NetworkCapabilities
+import android.net.VpnService
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
+import android.os.Build
+import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.os.SystemClock
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
+import android.view.Gravity
+import android.view.HapticFeedbackConstants
+import android.view.View
+import android.view.WindowManager
+import android.widget.ImageView
+import android.widget.TextView
+import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.viewpager2.widget.ViewPager2
+import com.serenetunnel.app.BuildConfig
+import com.serenetunnel.app.guide.GuideActivity
+import com.serenetunnel.app.ipfinder.IpFinderActivity
+import com.serenetunnel.app.journal.AppLogStore
+import com.serenetunnel.app.journal.JournalUiBinder
+import com.serenetunnel.app.networkinfo.NetworkIpProvider
+import com.serenetunnel.app.networkinfo.NetworkTransport
+import com.serenetunnel.app.settings.SettingsActivity
+import com.serenetunnel.app.subscription.ActivationActivity
+import com.serenetunnel.app.subscription.SubscriptionActivity
+import com.serenetunnel.app.support.SupportActivity
+import com.serenetunnel.app.ui.home.HomeAccessSnapshotStore
+import com.serenetunnel.app.ui.home.HomeConnectionState
+import com.serenetunnel.app.ui.home.HomeController
+import com.serenetunnel.app.ui.home.HomeControllerResult
+import com.serenetunnel.app.ui.home.HomeRuntimeFactory
+import com.serenetunnel.app.ui.home.HomeTimerController
+import com.serenetunnel.app.ui.home.HomeUiBinder
+import com.serenetunnel.app.ui.home.ConnectionTimeFormatter
+import com.serenetunnel.app.ui.home.NetworkOption
+import com.serenetunnel.app.ui.pager.StaticPageAdapter
+import com.serenetunnel.app.backend.BarkaBackendClient
+import com.serenetunnel.app.trial.TrialUsageStore
+import com.serenetunnel.app.ui.common.GiftFireworks
+import com.serenetunnel.app.ui.common.PressFeedback
+import com.serenetunnel.app.update.AppUpdateCoordinator
+import com.serenetunnel.app.vpnc6.BarkaVpnService
+import com.serenetunnel.app.vpnprofile.VpnProfileRepository
+import com.google.android.material.button.MaterialButton
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
+
+private enum class NetworkIpVisualState {
+    NEUTRAL,
+    VALID,
+    INVALID
+}
+
+class MainActivity : AppCompatActivity() {
+
+    private lateinit var homeDownload: com.serenetunnel.app.update.HomeApkDownload
+    private lateinit var homeBrandName: TextView
+
+    private var selectedNetwork: NetworkOption? = null
+    private var homeController: HomeController? = null
+    private lateinit var homeJournalPager: ViewPager2
+    private lateinit var journalUiBinder: JournalUiBinder
+    private var journalLogListener: SharedPreferences.OnSharedPreferenceChangeListener? = null
+
+    private lateinit var networkIpValue: TextView
+    private lateinit var networkIpStatus: TextView
+    private lateinit var networkIpCard: View
+    private lateinit var networkLogo: ImageView
+    private lateinit var networkTransportIcon: ImageView
+    private lateinit var networkName: TextView
+    private lateinit var networkSubtitle: TextView
+    private lateinit var networkFlagBurkina: ImageView
+    private lateinit var networkFlagNiger: ImageView
+    private lateinit var networkFlagTogo: ImageView
+    private lateinit var accessRemainingTime: TextView
+    private lateinit var accessStatus: TextView
+    private lateinit var connectionTime: TextView
+    private lateinit var vpnStatus: TextView
+    private lateinit var connectButton: MaterialButton
+    private lateinit var powerButton: TextView
+    private lateinit var buttonFreeTrial: View
+    private var trialActivationInProgress = false
+    private var giftFireworks: ValueAnimator? = null
+
+    private lateinit var uiBinder: HomeUiBinder
+    private lateinit var timerController: HomeTimerController
+    private lateinit var updateCoordinator: AppUpdateCoordinator
+    private lateinit var connectAction: () -> Unit
+    private var networkCallbackRegistered = false
+    private val profileSyncInProgress = AtomicBoolean(false)
+    private val initialSyncInProgress = AtomicBoolean(false)
+    private val accessRefreshInProgress = AtomicBoolean(false)
+    private val connectionOperationGeneration = AtomicLong(0L)
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private val initialSyncRetryRunnable = Runnable { ensureInitialRemoteSync() }
+    private val networkIpRefreshRunnable = object : Runnable {
+        override fun run() {
+            if (!vpnStateReconciliationActive) return
+            refreshNetworkIp()
+            mainHandler.postDelayed(this, 10_000L)
+        }
+    }
+    private val weeklyGiftRefreshRunnable = Runnable {
+        if (vpnStateReconciliationActive) {
+            refreshHomeState()
+            mainHandler.postDelayed(weeklyGiftRefreshRunnableRetry, 60_000L)
+        }
+    }
+    private val weeklyGiftRefreshRunnableRetry = Runnable { scheduleWeeklyGiftRefresh() }
+
+    private fun scheduleWeeklyGiftRefresh() {
+        mainHandler.removeCallbacks(weeklyGiftRefreshRunnable)
+        mainHandler.removeCallbacks(weeklyGiftRefreshRunnableRetry)
+        if (vpnStateReconciliationActive) {
+            mainHandler.postDelayed(weeklyGiftRefreshRunnable, TrialUsageStore.refreshDelayMillis())
+        }
+    }
+    private val vpnStateReconcileRunnable = object : Runnable {
+        override fun run() {
+            if (!vpnStateReconciliationActive) return
+            syncVpnRuntimeState()
+            mainHandler.postDelayed(this, VPN_STATE_RECONCILE_INTERVAL_MS)
+        }
+    }
+    private var pendingConnectAfterInitialSync = false
+    private var pendingConnectAfterVpnPermission = false
+    @Volatile private var connectionStartRequested = false
+    @Volatile private var disconnectRequested = false
+    private var lastConnectActionAtElapsedMs = 0L
+    private var lastConnectionTimerStartedAtElapsedMs = -1L
+    private var lastRenderedConnectionState: HomeConnectionState? = null
+    private var vpnStateReconciliationActive = false
+    private var orangeIpWarningToast: Toast? = null
+    private var lastOrangeInvalidIp: String? = null
+
+    private val notificationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            AppLogStore.add(this, "Permission de notification accordée.")
+            if (::connectAction.isInitialized) connectAction()
+        } else {
+            AppLogStore.add(this, "Permission de notification refusée.")
+            Toast.makeText(
+                this,
+                R.string.notification_permission_help,
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+
+    private val updateNotificationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        AppLogStore.add(
+            this,
+            if (granted) {
+                "Permission de notification des mises à jour accordée."
+            } else {
+                "Permission de notification des mises à jour refusée."
+            }
+        )
+    }
+
+    private val vpnPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val wasPending = pendingConnectAfterVpnPermission
+        pendingConnectAfterVpnPermission = false
+        if (result.resultCode == RESULT_OK && wasPending) {
+            AppLogStore.add(this, "Permission VPN Android accordée.")
+            val controller = requireController()
+            if (controller != null) {
+                startVpnConnection(controller)
+            }
+        } else {
+            AppLogStore.add(this, "Permission VPN Android refusée.")
+            resetPendingConnectionState()
+            Toast.makeText(
+                this,
+                R.string.vpn_permission_required,
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+    }
+
+    private val connectivityManager by lazy {
+        getSystemService(CONNECTIVITY_SERVICE) as ConnectivityManager
+    }
+
+    private val networkCallback = object : ConnectivityManager.NetworkCallback() {
+        override fun onAvailable(network: Network) {
+            refreshNetworkIpAsync()
+            ensureInitialRemoteSync()
+            maybeSyncVpnProfiles()
+        }
+        override fun onLost(network: Network) = refreshNetworkIpAsync()
+        override fun onCapabilitiesChanged(network: Network, networkCapabilities: NetworkCapabilities) {
+            refreshNetworkIpAsync()
+            if (networkCapabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) {
+                ensureInitialRemoteSync()
+            }
+            if (networkCapabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)) {
+                if (isInitialRemoteSyncComplete()) {
+                    refreshVpnServices(force = true)
+                    if (::updateCoordinator.isInitialized) {
+                        updateCoordinator.check(showNoUpdate = false, force = true)
+                    }
+                } else {
+                    ensureInitialRemoteSync()
+                }
+            }
+        }
+        override fun onLinkPropertiesChanged(network: Network, linkProperties: LinkProperties) = refreshNetworkIpAsync()
+    }
+
+    private val vpnProfileRepository by lazy {
+        VpnProfileRepository(BarkaBackendClient(this), this)
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        applyRecentsTaskIcon()
+        setContentView(R.layout.activity_home_journal_pager)
+        applyRootSystemInsets()
+        val homePage = layoutInflater.inflate(R.layout.activity_main, null, false)
+        homeDownload = com.serenetunnel.app.update.HomeApkDownload(this, homePage)
+        homeBrandName = homePage.findViewById(R.id.homeBrandName)
+        val journalPage = layoutInflater.inflate(R.layout.activity_journal, null, false)
+        journalPage.findViewById<android.view.View>(R.id.journalContentContainer).apply {
+            setPadding(paddingLeft, 0, paddingRight, paddingBottom)
+        }
+        homePage.findViewById<android.view.View>(R.id.pageBottomDivider).visibility =
+            android.view.View.GONE
+        homePage.findViewById<android.view.View>(R.id.pageBottomNavigation).visibility =
+            android.view.View.GONE
+        journalPage.findViewById<android.view.View>(R.id.pageBottomDivider).visibility =
+            android.view.View.GONE
+        journalPage.findViewById<android.view.View>(R.id.pageBottomNavigation).visibility =
+            android.view.View.GONE
+        homeJournalPager = findViewById(R.id.homeJournalPager)
+        // Disable edge stretching only; the pager keeps handling horizontal swipes.
+        homeJournalPager.getChildAt(0).overScrollMode = View.OVER_SCROLL_NEVER
+        homeJournalPager.adapter = StaticPageAdapter(listOf(homePage, journalPage))
+        homeJournalPager.offscreenPageLimit = 1
+        homeJournalPager.setCurrentItem(PAGE_HOME, false)
+        homeJournalPager.post { configureFirstLaunchChannelBanner() }
+        applySystemBars()
+        updateCoordinator = AppUpdateCoordinator(this)
+        selectedNetwork = loadSelectedNetwork()
+
+        val networkSelector = homePage.findViewById<android.view.View>(R.id.networkSelector)
+        networkLogo = homePage.findViewById(R.id.networkLogo)
+        networkName = homePage.findViewById(R.id.networkName)
+        networkSubtitle = homePage.findViewById(R.id.networkSubtitle)
+        networkFlagBurkina = homePage.findViewById(R.id.networkFlagBurkina)
+        networkFlagNiger = homePage.findViewById(R.id.networkFlagNiger)
+        networkFlagTogo = homePage.findViewById(R.id.networkFlagTogo)
+
+        buttonFreeTrial = homePage.findViewById(R.id.buttonFreeTrial)
+        updateGiftVisibility()
+        val brandBarka = getString(R.string.main_brand_barka)
+        val brandTunnel = getString(R.string.main_brand_tunnel)
+        homePage.findViewById<TextView>(R.id.homeBrandName).text =
+            SpannableString("$brandBarka $brandTunnel").apply {
+                setSpan(
+                    ForegroundColorSpan(ContextCompat.getColor(this@MainActivity, R.color.barka_blue)),
+                    brandBarka.length + 1, length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
+            }
+        val buttonRefresh = homePage.findViewById<android.view.View>(R.id.buttonRefresh)
+        val addAccessButton = homePage.findViewById<android.view.View>(R.id.addAccessButton)
+        connectButton = homePage.findViewById(R.id.connectButton)
+        powerButton = homePage.findViewById(R.id.powerButton)
+
+        networkIpValue = homePage.findViewById(R.id.networkIpValue)
+        networkIpStatus = homePage.findViewById(R.id.networkIpStatus)
+        networkIpCard = homePage.findViewById(R.id.networkIpCard)
+        networkTransportIcon = homePage.findViewById(R.id.networkTransportIcon)
+
+        networkIpValue.setOnClickListener { copyNetworkIp() }
+        networkIpStatus.setOnClickListener { copyNetworkIp() }
+        networkIpCard.setOnClickListener { copyNetworkIp() }
+
+        accessRemainingTime = homePage.findViewById(R.id.accessRemainingTime)
+        accessStatus = homePage.findViewById(R.id.accessStatus)
+        connectionTime = homePage.findViewById(R.id.connectionTime)
+        vpnStatus = homePage.findViewById(R.id.vpnStatus)
+
+        uiBinder = HomeUiBinder(
+            networkName = networkName,
+            networkSubtitle = networkSubtitle,
+            vpnStatus = vpnStatus,
+            connectionTime = connectionTime,
+            accessRemainingTime = accessRemainingTime,
+            accessStatus = accessStatus,
+            connectButton = connectButton
+        )
+
+        updateSelectedNetworkLogo(selectedNetwork)
+
+        timerController = HomeTimerController(
+            onAccessTick = { seconds ->
+                uiBinder.showAccessRemaining(seconds)
+
+                if (seconds <= 0L) {
+                    accessStatus.setText(R.string.no_active_time)
+                }
+            },
+            onConnectionTick = { seconds ->
+                connectionTime.text = getString(
+                    R.string.connection_time_format,
+                    formatDuration(seconds)
+                )
+            }
+        )
+
+        timerController.start()
+        AppLogStore.add(this, "Barka Tunnel démarré.")
+        refreshNetworkIp()
+        initializeHomeRuntime()
+        requestUpdateNotificationPermissionIfNeeded()
+        ensureInitialRemoteSync()
+
+        networkSelector.setOnClickListener {
+            showNetworkDialog()
+        }
+
+        buttonFreeTrial.setOnClickListener {
+            if (trialActivationInProgress || TrialUsageStore.wasUsed(this) != false) {
+                return@setOnClickListener
+            }
+            val controller = requireController() ?: return@setOnClickListener
+            trialActivationInProgress = true
+            buttonFreeTrial.isEnabled = false
+            giftFireworks?.cancel()
+            giftFireworks = GiftFireworks.show(buttonFreeTrial)
+
+            runHomeAction {
+                try {
+                    val result = controller.startFreeTrial()
+                    timerController.syncAccessRemaining(
+                        controller.currentState().access.remainingSeconds
+                    )
+                    result
+                } catch (error: Exception) {
+                    HomeControllerResult.Message(error.message ?: getString(R.string.trial_not_available_device))
+                } finally {
+                    runOnUiThread {
+                        trialActivationInProgress = false
+                        updateGiftVisibility()
+                    }
+                }
+            }
+        }
+
+        buttonRefresh.setOnClickListener {
+            refreshNetworkIp()
+            refreshVpnServices(force = true)
+            updateCoordinator.check(showNoUpdate = true, force = true)
+
+            val controller = requireController() ?: return@setOnClickListener
+
+            runHomeAction(
+                successMessage = getString(R.string.access_refreshed)
+            ) {
+                val accessResult = controller.refreshAccess()
+
+                if (accessResult is HomeControllerResult.State) {
+                    timerController.syncAccessRemaining(
+                        accessResult.value.access.remainingSeconds
+                    )
+                }
+
+                accessResult
+            }
+        }
+
+        addAccessButton.setOnClickListener {
+            startActivity(Intent(this, SubscriptionActivity::class.java))
+        }
+
+        connectAction = connectAction@{
+            val now = SystemClock.elapsedRealtime()
+
+            val controller = requireController() ?: return@connectAction
+
+            if (disconnectRequested) {
+                return@connectAction
+            }
+
+            if (pendingConnectAfterInitialSync || pendingConnectAfterVpnPermission) {
+                if (now - lastConnectActionAtElapsedMs < CONNECT_CANCEL_GUARD_MS) {
+                    return@connectAction
+                }
+                vibrateOnce(PRESS_VIBRATION_MS)
+                cancelPendingConnectionStart(controller)
+                return@connectAction
+            }
+
+            if (connectionStartRequested) {
+                if (now - lastConnectActionAtElapsedMs < CONNECT_CANCEL_GUARD_MS) {
+                    return@connectAction
+                }
+                vibrateOnce(PRESS_VIBRATION_MS)
+                requestVpnDisconnect(controller)
+                return@connectAction
+            }
+
+            val currentConnection =
+                syncVpnRuntimeState() ?: controller.currentState().connection
+
+            when (currentConnection) {
+                HomeConnectionState.Disconnected,
+                is HomeConnectionState.Error -> {
+                    lastConnectActionAtElapsedMs = now
+                    vibrateOnce(PRESS_VIBRATION_MS)
+                    beginVpnConnection(controller)
+                }
+                HomeConnectionState.Connecting -> {
+                    if (now - lastConnectActionAtElapsedMs < CONNECT_CANCEL_GUARD_MS) {
+                        return@connectAction
+                    }
+                    vibrateOnce(PRESS_VIBRATION_MS)
+                    requestVpnDisconnect(controller)
+                }
+                HomeConnectionState.Disconnecting -> Unit
+                is HomeConnectionState.Connected -> {
+                    vibrateOnce(PRESS_VIBRATION_MS)
+                    requestVpnDisconnect(controller)
+                }
+            }
+        }
+
+        connectButton.setOnClickListener {
+            connectAction()
+        }
+        powerButton.setOnClickListener {
+            connectAction()
+        }
+
+        val sharedNavHomeIcon = findViewById<ImageView>(R.id.sharedNavHomeIcon)
+        val sharedNavHomeLabel = findViewById<TextView>(R.id.sharedNavHomeLabel)
+        val sharedNavJournalIcon = findViewById<ImageView>(R.id.sharedNavJournalIcon)
+        val sharedNavJournalLabel = findViewById<TextView>(R.id.sharedNavJournalLabel)
+        var activeBottomPage = -1
+
+        fun updateBottomNavigation(page: Int) {
+            if (activeBottomPage == page) return
+            activeBottomPage = page
+            val homeActive = page == PAGE_HOME
+            sharedNavHomeIcon.setImageResource(
+                if (homeActive) R.drawable.ic_nav_home_active else R.drawable.ic_nav_home
+            )
+            sharedNavJournalIcon.setImageResource(
+                if (homeActive) R.drawable.ic_nav_journal else R.drawable.ic_nav_journal_active
+            )
+            sharedNavHomeLabel.setTextColor(
+                ContextCompat.getColor(
+                    this,
+                    if (homeActive) R.color.barka_blue else R.color.barka_text_secondary
+                )
+            )
+            sharedNavJournalLabel.setTextColor(
+                ContextCompat.getColor(
+                    this,
+                    if (homeActive) R.color.barka_text_secondary else R.color.barka_blue
+                )
+            )
+            sharedNavHomeLabel.setTypeface(
+                null,
+                if (homeActive) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL
+            )
+            sharedNavJournalLabel.setTypeface(
+                null,
+                if (homeActive) android.graphics.Typeface.NORMAL else android.graphics.Typeface.BOLD
+            )
+        }
+
+        findViewById<android.view.View>(R.id.sharedNavHome).setOnClickListener {
+            openHome()
+            refreshNetworkIp()
+            refreshHomeState()
+        }
+
+        findViewById<android.view.View>(R.id.sharedNavJournal).setOnClickListener {
+            openJournal()
+        }
+
+        homePage.findViewById<android.view.View>(R.id.navIpFinder).setOnClickListener {
+            startActivity(Intent(this, IpFinderActivity::class.java))
+        }
+
+        homePage.findViewById<android.view.View>(R.id.navSettings).setOnClickListener {
+            startActivity(Intent(this, SettingsActivity::class.java))
+        }
+
+        homePage.findViewById<android.view.View>(R.id.buttonMenu).setOnClickListener {
+            showSideMenu()
+        }
+
+        journalUiBinder = JournalUiBinder(
+            this,
+            journalPage.findViewById(R.id.journalList)
+        )
+        journalPage.findViewById<android.view.View>(R.id.journalBackButton)
+            .setOnClickListener { openHome() }
+        journalPage.findViewById<MaterialButton>(R.id.clearJournalButton)
+            .setOnClickListener {
+                AppLogStore.clear(this)
+                journalUiBinder.refresh()
+            }
+        homeJournalPager.registerOnPageChangeCallback(
+            object : ViewPager2.OnPageChangeCallback() {
+                override fun onPageScrolled(
+                    position: Int,
+                    positionOffset: Float,
+                    positionOffsetPixels: Int
+                ) {
+                    updateBottomNavigation(
+                        if (position == PAGE_JOURNAL || positionOffset >= 0.5f) {
+                            PAGE_JOURNAL
+                        } else {
+                            PAGE_HOME
+                        }
+                    )
+                }
+
+                override fun onPageSelected(position: Int) {
+                    updateBottomNavigation(position)
+                    if (position == PAGE_JOURNAL) {
+                        journalUiBinder.refresh()
+                    }
+                }
+            }
+        )
+        updateBottomNavigation(PAGE_HOME)
+        onBackPressedDispatcher.addCallback(
+            this,
+            object : OnBackPressedCallback(true) {
+                override fun handleOnBackPressed() {
+                    if (homeJournalPager.currentItem == PAGE_JOURNAL) {
+                        openHome()
+                    } else {
+                        finish()
+                    }
+                }
+            }
+        )
+        journalUiBinder.refresh()
+
+    }
+
+    override fun onStart() {
+        super.onStart()
+        vpnStateReconciliationActive = true
+        mainHandler.removeCallbacks(networkIpRefreshRunnable)
+        mainHandler.post(networkIpRefreshRunnable)
+        scheduleWeeklyGiftRefresh()
+        mainHandler.removeCallbacks(vpnStateReconcileRunnable)
+        mainHandler.post(vpnStateReconcileRunnable)
+        if (journalLogListener == null) {
+            journalLogListener = AppLogStore.registerChangeListener(this) {
+                runOnUiThread {
+                    if (
+                        ::journalUiBinder.isInitialized &&
+                        homeJournalPager.currentItem == PAGE_JOURNAL
+                    ) {
+                        journalUiBinder.refresh()
+                    }
+                }
+            }
+        }
+        if (!networkCallbackRegistered) {
+            runCatching {
+                connectivityManager.registerNetworkCallback(
+                    NetworkRequest.Builder()
+                        .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                        .build(),
+                    networkCallback
+                )
+            }.onSuccess {
+                networkCallbackRegistered = true
+            }.onFailure {
+                AppLogStore.add(this, "Surveillance réseau Android indisponible.")
+            }
+        }
+        ensureInitialRemoteSync()
+        maybeSyncVpnProfiles()
+    }
+
+    override fun onStop() {
+        homeDownload.stop()
+        giftFireworks?.cancel()
+        giftFireworks = null
+        vpnStateReconciliationActive = false
+        mainHandler.removeCallbacks(networkIpRefreshRunnable)
+        mainHandler.removeCallbacks(weeklyGiftRefreshRunnable)
+        mainHandler.removeCallbacks(weeklyGiftRefreshRunnableRetry)
+        mainHandler.removeCallbacks(vpnStateReconcileRunnable)
+        journalLogListener?.let {
+            AppLogStore.unregisterChangeListener(this, it)
+        }
+        journalLogListener = null
+        if (networkCallbackRegistered) {
+            runCatching { connectivityManager.unregisterNetworkCallback(networkCallback) }
+            networkCallbackRegistered = false
+        }
+        mainHandler.removeCallbacks(initialSyncRetryRunnable)
+        super.onStop()
+    }
+
+    private var entryUpdateGeneration = 0L
+    private var homePageResumed = false
+
+    private val foregroundUpdatePoll = object : Runnable {
+        override fun run() {
+            if (homePageResumed && isInitialRemoteSyncComplete()) refreshVpnServices(force = true)
+            if (::updateCoordinator.isInitialized) {
+                val generation = entryUpdateGeneration
+                updateCoordinator.check(showNoUpdate = false, force = true) { update ->
+                    if (update != null && !update.updateAvailable && homePageResumed &&
+                        generation == entryUpdateGeneration &&
+                        !isFinishing && !isDestroyed) {
+                        com.serenetunnel.app.ui.common.UpdateSuccessFeedback.showOnce(
+                            this@MainActivity, R.string.startup_sync_current
+                        )
+                    }
+                }
+            }
+            mainHandler.postDelayed(this, 30_000L)
+        }
+    }
+
+    override fun onPause() {
+        homePageResumed = false
+        if (::timerController.isInitialized) timerController.stop()
+        vpnStateReconciliationActive = false
+        mainHandler.removeCallbacks(networkIpRefreshRunnable)
+        mainHandler.removeCallbacks(vpnStateReconcileRunnable)
+        mainHandler.removeCallbacks(foregroundUpdatePoll)
+        super.onPause()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        homeDownload.resume()
+        homePageResumed = true
+        if (::timerController.isInitialized) timerController.start()
+        vpnStateReconciliationActive = true
+        mainHandler.removeCallbacks(networkIpRefreshRunnable)
+        mainHandler.post(networkIpRefreshRunnable)
+        mainHandler.removeCallbacks(vpnStateReconcileRunnable)
+        mainHandler.post(vpnStateReconcileRunnable)
+        entryUpdateGeneration += 1L
+        mainHandler.removeCallbacks(foregroundUpdatePoll)
+        mainHandler.post(foregroundUpdatePoll)
+        com.serenetunnel.app.update.RemoteUpdateScheduler.requestNow(this)
+
+        if (::networkIpValue.isInitialized) {
+            applySystemBars()
+            restoreSelectedNetworkSelection()
+            refreshNetworkIp()
+            syncVpnRuntimeState()
+            if (
+                BarkaVpnService.connectionSnapshot().state ==
+                    BarkaVpnService.RuntimeConnectionState.DISCONNECTED &&
+                !pendingConnectAfterInitialSync &&
+                !pendingConnectAfterVpnPermission &&
+                !connectionStartRequested
+            ) {
+                BarkaVpnService.cancelConnectingNotification(this)
+            }
+            restoreAccessSnapshot()
+            refreshHomeState()
+            if (isInitialRemoteSyncComplete()) {
+                refreshVpnServices(force = true)
+                if (::updateCoordinator.isInitialized) {
+                    updateCoordinator.check(showNoUpdate = false, force = true)
+                }
+            } else {
+                ensureInitialRemoteSync()
+            }
+            if (::journalUiBinder.isInitialized && homeJournalPager.currentItem == PAGE_JOURNAL) {
+                journalUiBinder.refresh()
+            }
+        }
+    }
+
+    override fun onDestroy() {
+        mainHandler.removeCallbacks(foregroundUpdatePoll)
+        vpnStateReconciliationActive = false
+        mainHandler.removeCallbacks(networkIpRefreshRunnable)
+        mainHandler.removeCallbacks(weeklyGiftRefreshRunnable)
+        mainHandler.removeCallbacks(weeklyGiftRefreshRunnableRetry)
+        mainHandler.removeCallbacks(vpnStateReconcileRunnable)
+        mainHandler.removeCallbacks(initialSyncRetryRunnable)
+        if (::timerController.isInitialized) {
+            timerController.stop()
+        }
+
+        super.onDestroy()
+    }
+
+    private fun initializeHomeRuntime() {
+        val app = application as BarkaApplication
+
+        val runtime = HomeRuntimeFactory.create(
+            context = this,
+            container = app.container
+        )
+
+        homeController = HomeController(runtime)
+        val cachedAccess = HomeAccessSnapshotStore.restore(this)
+        if (cachedAccess != null) {
+            handleHomeResult(homeController!!.syncAccess(cachedAccess))
+            timerController.syncAccessRemaining(cachedAccess.remainingSeconds)
+        } else {
+            accessStatus.setText(R.string.waiting_activation)
+        }
+
+        val initialNetwork = selectedNetwork
+            ?: NetworkOption.ALL.firstOrNull()
+        if (initialNetwork != null && homeController?.currentState()?.selectedNetwork == null) {
+            handleHomeResult(homeController!!.selectNetwork(initialNetwork))
+        }
+
+        syncVpnRuntimeState()
+        refreshHomeState()
+    }
+
+    private fun syncVpnRuntimeState(): HomeConnectionState? {
+        val controller = homeController ?: return null
+        val snapshot = BarkaVpnService.connectionSnapshot()
+        val connection = when {
+            disconnectRequested &&
+                snapshot.state != BarkaVpnService.RuntimeConnectionState.DISCONNECTED ->
+                HomeConnectionState.Disconnecting
+            snapshot.state == BarkaVpnService.RuntimeConnectionState.DISCONNECTED ->
+                if (connectionStartRequested) {
+                    HomeConnectionState.Connecting
+                } else {
+                    HomeConnectionState.Disconnected
+                }
+            snapshot.state == BarkaVpnService.RuntimeConnectionState.CONNECTING ->
+                HomeConnectionState.Connecting
+            snapshot.state == BarkaVpnService.RuntimeConnectionState.CONNECTED ->
+                HomeConnectionState.Connected(
+                    snapshot.profileName ?: controller.currentState().selectedNetwork?.displayName.orEmpty()
+                )
+            else -> HomeConnectionState.Disconnecting
+        }
+
+        if (snapshot.state == BarkaVpnService.RuntimeConnectionState.CONNECTED) {
+            connectionStartRequested = false
+        } else if (snapshot.state == BarkaVpnService.RuntimeConnectionState.DISCONNECTED && disconnectRequested) {
+            disconnectRequested = false
+        }
+
+        val syncedState = controller.syncConnection(connection)
+        if (lastRenderedConnectionState != connection) {
+            handleHomeResult(syncedState)
+            refreshNetworkIp()
+        }
+
+        if (connection is HomeConnectionState.Connected) {
+            val elapsedSeconds = if (snapshot.connectedAtElapsedMs > 0L) {
+                ((SystemClock.elapsedRealtime() - snapshot.connectedAtElapsedMs) / 1000L)
+                    .coerceAtLeast(0L)
+            } else {
+                0L
+            }
+            if (lastConnectionTimerStartedAtElapsedMs != snapshot.connectedAtElapsedMs) {
+                lastConnectionTimerStartedAtElapsedMs = snapshot.connectedAtElapsedMs
+                timerController.startConnectionTimer(elapsedSeconds)
+            }
+        } else {
+            lastConnectionTimerStartedAtElapsedMs = -1L
+        }
+
+        return connection
+    }
+
+    private fun restoreAccessSnapshot() {
+        val controller = homeController ?: return
+        val cached = HomeAccessSnapshotStore.restore(this) ?: return
+        handleHomeResult(controller.syncAccess(cached))
+        timerController.syncAccessRemaining(cached.remainingSeconds)
+    }
+
+    private fun refreshHomeState() {
+        val controller = homeController ?: return
+        if (!accessRefreshInProgress.compareAndSet(false, true)) return
+        val activationGeneration = HomeAccessSnapshotStore.activationGeneration
+
+        Thread {
+            val accessResult = runCatching { controller.refreshAccess() }.getOrNull()
+
+            runOnUiThread {
+                try {
+                    if (isFinishing || isDestroyed) return@runOnUiThread
+                    if (activationGeneration != HomeAccessSnapshotStore.activationGeneration) {
+                        restoreAccessSnapshot()
+                        return@runOnUiThread
+                    }
+                    if (accessResult != null) {
+                        handleHomeResult(accessResult)
+
+                        if (accessResult is HomeControllerResult.State) {
+                            timerController.syncAccessRemaining(
+                                accessResult.value.access.remainingSeconds
+                            )
+                        }
+                    }
+                } finally {
+                    accessRefreshInProgress.set(false)
+                }
+            }
+        }.start()
+    }
+
+    private fun networkSelectionLocked(): Boolean {
+        val state = homeController?.currentState()?.connection
+        return connectionStartRequested || disconnectRequested ||
+            pendingConnectAfterInitialSync || pendingConnectAfterVpnPermission ||
+            BarkaVpnService.connectionSnapshot().state != BarkaVpnService.RuntimeConnectionState.DISCONNECTED ||
+            state is HomeConnectionState.Connected || state is HomeConnectionState.Connecting ||
+            state is HomeConnectionState.Disconnecting
+    }
+
+    private fun allowNetworkSelection(): Boolean {
+        if (!networkSelectionLocked()) return true
+        Toast.makeText(this, R.string.disconnect_before_network_change, Toast.LENGTH_SHORT).show()
+        return false
+    }
+
+    private var networkChoiceDialog: Dialog? = null
+
+    private fun showNetworkDialog() {
+        if (!allowNetworkSelection() || networkChoiceDialog?.isShowing == true) return
+        val dialog = Dialog(this)
+        networkChoiceDialog = dialog
+        dialog.setCanceledOnTouchOutside(false)
+        dialog.setOnDismissListener { networkChoiceDialog = null }
+        dialog.setContentView(R.layout.dialog_network_selection)
+
+        val selectedId =
+            homeController?.currentState()?.selectedNetwork?.id
+                ?: selectedNetwork?.id
+                ?: NetworkOption.ALL.firstOrNull()?.id
+
+        val checkTiktok = dialog.findViewById<android.widget.ImageView>(R.id.optionTiktokCheck)
+        val checkGlobal = dialog.findViewById<android.widget.ImageView>(R.id.optionGlobalCheck)
+        val nameGlobal = dialog.findViewById<TextView>(R.id.optionGlobalName)
+        val nameTiktok = dialog.findViewById<TextView>(R.id.optionTiktokName)
+        val checkMoov = dialog.findViewById<android.widget.ImageView>(R.id.optionMoovCheck)
+        val checkOrange = dialog.findViewById<android.widget.ImageView>(R.id.optionOrangeCheck)
+        val checkTelecel = dialog.findViewById<android.widget.ImageView>(R.id.optionTelecelCheck)
+        val nameMoov = dialog.findViewById<TextView>(R.id.optionMoovName)
+        val nameOrange = dialog.findViewById<TextView>(R.id.optionOrangeName)
+        val nameTelecel = dialog.findViewById<TextView>(R.id.optionTelecelName)
+
+        fun showAvailability(name: TextView, networkId: String, label: String) {
+            name.text = if (vpnProfileRepository.isMaintenance(networkId)) {
+                "$label\n${getString(R.string.network_maintenance_badge)}"
+            } else {
+                label
+            }
+        }
+        showAvailability(nameTiktok, "moov_tiktok", "MOOV FORFAIT TIKTOK")
+        showAvailability(nameMoov, "moov_bf", "MOOV-AFRICA BF")
+        showAvailability(nameOrange, "orange_bf", "ORANGE BF")
+        showAvailability(nameTelecel, "telecel_bf", "TELECEL BF")
+        showAvailability(nameGlobal, "global_world", "GLOBAL MONDIAL")
+
+        fun updateSelection(id: String?) {
+            checkTiktok.setImageResource(if (id == "moov_tiktok") R.drawable.ic_selection_badge else R.drawable.ic_selection_empty)
+            checkMoov.setImageResource(if (id == "moov_bf") R.drawable.ic_selection_badge else R.drawable.ic_selection_empty)
+            checkOrange.setImageResource(if (id == "orange_bf") R.drawable.ic_selection_badge else R.drawable.ic_selection_empty)
+            checkTelecel.setImageResource(if (id == "telecel_bf") R.drawable.ic_selection_badge else R.drawable.ic_selection_empty)
+            checkGlobal.setImageResource(if (id == "global_world") R.drawable.ic_selection_badge else R.drawable.ic_selection_empty)
+            listOf(R.id.optionMoov to "moov_bf", R.id.optionTiktok to "moov_tiktok",
+                R.id.optionOrange to "orange_bf", R.id.optionTelecel to "telecel_bf",
+                R.id.optionGlobal to "global_world").forEach { (viewId, networkId) ->
+                val row = dialog.findViewById<View>(viewId)
+                val maintenance = vpnProfileRepository.isMaintenance(networkId)
+                row.isSelected = id == networkId && !maintenance
+                row.alpha = if (maintenance) 0.42f else 1f
+                fun shade(view: View) {
+                    if (view is ImageView) view.colorFilter = if (maintenance)
+                        android.graphics.ColorMatrixColorFilter(android.graphics.ColorMatrix().apply { setSaturation(0f) }) else null
+                    if (view is android.view.ViewGroup) for (i in 0 until view.childCount) shade(view.getChildAt(i))
+                }
+                shade(row)
+            }
+        }
+        updateSelection(selectedId)
+
+        fun select(networkId: String) {
+            if (!allowNetworkSelection()) { dialog.dismiss(); return }
+            val network = NetworkOption.ALL.firstOrNull { it.id == networkId }
+                ?: return
+            if (vpnProfileRepository.isMaintenance(networkId)) {
+                Toast.makeText(this, R.string.network_maintenance_message, Toast.LENGTH_LONG).show()
+                return
+            }
+
+            selectedNetwork = network
+            saveSelectedNetwork(network)
+            AppLogStore.add(
+                this,
+                "Réseau sélectionné • ${network.displayName}."
+            )
+
+            val controller = homeController
+            if (controller != null) {
+                handleHomeResult(
+                    controller.selectNetwork(network)
+                )
+            } else {
+                uiBinder.showNetwork(network)
+                updateSelectedNetworkLogo(network)
+            }
+
+            refreshNetworkIp()
+            updateSelection(networkId)
+            dialog.dismiss()
+        }
+
+        dialog.findViewById<android.view.View>(R.id.networkDialogClose)
+            .setOnClickListener { dialog.dismiss() }
+
+        dialog.findViewById<android.view.View>(R.id.optionTiktok)
+            .setOnClickListener { select("moov_tiktok") }
+
+        dialog.findViewById<android.view.View>(R.id.optionMoov)
+            .setOnClickListener { select("moov_bf") }
+
+        dialog.findViewById<android.view.View>(R.id.optionOrange)
+            .setOnClickListener { select("orange_bf") }
+
+        dialog.findViewById<android.view.View>(R.id.optionTelecel)
+            .setOnClickListener { select("telecel_bf") }
+        dialog.findViewById<android.view.View>(R.id.optionGlobal)
+            .setOnClickListener { select("global_world") }
+
+        dialog.show()
+        dialog.window?.decorView?.let(PressFeedback::applyToTree)
+
+        dialog.window?.apply {
+            setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+            setLayout(
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.MATCH_PARENT
+            )
+        }
+    }
+
+    private fun showOrangeIpWarningIfNeeded(currentCellularIp: String?) {
+        val shouldWarn = selectedNetwork?.id == "orange_bf" &&
+            !currentCellularIp.isNullOrBlank() &&
+            !IpFinderActivity.isIpCompatible(this, currentCellularIp)
+
+        if (!shouldWarn) {
+            orangeIpWarningToast?.cancel()
+            orangeIpWarningToast = null
+            lastOrangeInvalidIp = null
+            return
+        }
+        if (lastOrangeInvalidIp == currentCellularIp) return
+
+        orangeIpWarningToast?.cancel()
+        orangeIpWarningToast = Toast.makeText(
+            this,
+            R.string.orange_ipfinder_required,
+            Toast.LENGTH_SHORT
+        ).also { it.show() }
+        lastOrangeInvalidIp = currentCellularIp
+    }
+
+    private fun beginVpnConnection(controller: HomeController) {
+        connectionOperationGeneration.incrementAndGet()
+        disconnectRequested = false
+        connectionStartRequested = true
+        val selected = controller.currentState().selectedNetwork
+        AppLogStore.add(
+            this,
+            "Connexion en cours${selected?.let { " • ${it.displayName}" } ?: ""}."
+        )
+        handleHomeResult(controller.syncConnection(HomeConnectionState.Connecting))
+
+        if (!isInitialRemoteSyncComplete()) {
+            pendingConnectAfterInitialSync = true
+            ensureInitialRemoteSync()
+            return
+        }
+
+        continueVpnConnection(controller)
+    }
+
+    private fun continueVpnConnection(controller: HomeController) {
+        if (updateCoordinator.showBlockingIfNeeded()) {
+            resetPendingConnectionState()
+            return
+        }
+
+        val permissionIntent = VpnService.prepare(this)
+        if (permissionIntent != null) {
+            pendingConnectAfterVpnPermission = true
+            handleHomeResult(controller.syncConnection(HomeConnectionState.Connecting))
+            AppLogStore.add(this, "Demande de permission VPN Android.")
+            vpnPermissionLauncher.launch(permissionIntent)
+            return
+        }
+
+        startVpnConnection(controller)
+    }
+
+    private fun startVpnConnection(controller: HomeController) {
+        pendingConnectAfterInitialSync = false
+        pendingConnectAfterVpnPermission = false
+        val operationGeneration = connectionOperationGeneration.get()
+        recordConnectionAttemptAsync()
+
+        handleHomeResult(controller.syncConnection(HomeConnectionState.Connecting))
+
+        Thread {
+            val result = controller.connect {
+                operationGeneration != connectionOperationGeneration.get() ||
+                    disconnectRequested
+            }
+            runOnUiThread {
+                if (
+                    operationGeneration != connectionOperationGeneration.get() ||
+                    disconnectRequested
+                ) {
+                    syncVpnRuntimeState()
+                    return@runOnUiThread
+                }
+
+                connectionStartRequested = false
+                val snapshot = BarkaVpnService.connectionSnapshot()
+                if (snapshot.state == BarkaVpnService.RuntimeConnectionState.CONNECTED) {
+                    val connectedName = snapshot.profileName
+                        ?: controller.currentState().selectedNetwork?.displayName.orEmpty()
+                    vibrateOnce(CONNECTED_VIBRATION_MS)
+                    AppLogStore.add(
+                        this,
+                        "VPN connecté${connectedName.takeIf { it.isNotBlank() }?.let { " • $it" }.orEmpty()}."
+                    )
+                } else if (snapshot.state == BarkaVpnService.RuntimeConnectionState.DISCONNECTED) {
+                    BarkaVpnService.cancelConnectingNotification(this)
+                }
+
+                syncVpnRuntimeState()
+                if (result is HomeControllerResult.Message) {
+                    handleHomeResult(result)
+                }
+            }
+        }.start()
+    }
+
+    private fun requestVpnDisconnect(controller: HomeController) {
+        val operationGeneration = connectionOperationGeneration.incrementAndGet()
+        pendingConnectAfterInitialSync = false
+        pendingConnectAfterVpnPermission = false
+        connectionStartRequested = false
+        disconnectRequested = true
+        AppLogStore.add(this, "Déconnexion en cours.")
+        handleHomeResult(controller.syncConnection(HomeConnectionState.Disconnecting))
+
+        Thread {
+            val result = controller.disconnect()
+            runOnUiThread {
+                if (operationGeneration != connectionOperationGeneration.get()) {
+                    syncVpnRuntimeState()
+                    return@runOnUiThread
+                }
+
+                disconnectRequested = false
+                val snapshot = BarkaVpnService.connectionSnapshot()
+                if (snapshot.state == BarkaVpnService.RuntimeConnectionState.DISCONNECTED) {
+                    timerController.stopConnectionTimer()
+                }
+                syncVpnRuntimeState()
+                if (result is HomeControllerResult.Message) {
+                    handleHomeResult(result)
+                    syncVpnRuntimeState()
+                }
+            }
+        }.start()
+    }
+
+    private fun cancelPendingConnectionStart(controller: HomeController) {
+        connectionOperationGeneration.incrementAndGet()
+        pendingConnectAfterInitialSync = false
+        pendingConnectAfterVpnPermission = false
+        connectionStartRequested = false
+        disconnectRequested = false
+        BarkaVpnService.cancelConnectingNotification(this)
+        AppLogStore.add(this, "Déconnexion en cours.")
+        handleHomeResult(controller.syncConnection(HomeConnectionState.Disconnected))
+        timerController.stopConnectionTimer()
+        AppLogStore.add(this, "VPN déconnecté.")
+    }
+
+    private fun resetPendingConnectionState() {
+        pendingConnectAfterInitialSync = false
+        pendingConnectAfterVpnPermission = false
+        connectionStartRequested = false
+        disconnectRequested = false
+        val controller = homeController ?: return
+        val runtimeState = BarkaVpnService.connectionSnapshot().state
+        if (runtimeState == BarkaVpnService.RuntimeConnectionState.DISCONNECTED) {
+            handleHomeResult(controller.syncConnection(HomeConnectionState.Disconnected))
+        }
+    }
+
+    private fun recordConnectionAttemptAsync() {
+        Thread {
+            runCatching {
+                BarkaBackendClient(applicationContext).markConnectionAttempt()
+            }
+        }.start()
+    }
+
+    private fun requireController(): HomeController? {
+        val controller = homeController
+
+        if (controller != null) {
+            return controller
+        }
+
+        AppLogStore.add(this, "Contrôleur VPN indisponible.")
+        Toast.makeText(
+            this,
+            R.string.vpn_initializing,
+            Toast.LENGTH_SHORT
+        ).show()
+
+        initializeHomeRuntime()
+        return homeController
+    }
+
+    private fun runHomeAction(
+        successMessage: String? = null,
+        disableConnectButton: Boolean = true,
+        action: () -> HomeControllerResult
+    ) {
+        if (disableConnectButton) {
+            connectButton.isEnabled = false
+        }
+
+        Thread {
+            val result = action()
+
+            runOnUiThread {
+                if (disableConnectButton) {
+                    connectButton.isEnabled = true
+                }
+                handleHomeResult(result)
+
+                if (
+                    successMessage != null &&
+                    result is HomeControllerResult.State
+                ) {
+                    Toast.makeText(
+                        this,
+                        successMessage,
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+        }.start()
+    }
+
+    private fun handleHomeResult(
+        result: HomeControllerResult
+    ) {
+        updateGiftVisibility()
+        when (result) {
+            is HomeControllerResult.State -> {
+                val latestState = homeController?.currentState() ?: result.value
+                selectedNetwork = latestState.selectedNetwork
+
+                uiBinder.showNetwork(
+                    latestState.selectedNetwork
+                )
+                updateSelectedNetworkLogo(
+                    latestState.selectedNetwork
+                )
+
+                uiBinder.showAccess(
+                    latestState.access
+                )
+
+                uiBinder.showConnection(
+                    latestState.connection
+                )
+                lastRenderedConnectionState = latestState.connection
+                updatePowerButtonState(latestState.connection)
+                stopConnectionTimerIfInactive(latestState.connection)
+            }
+
+            is HomeControllerResult.Message -> {
+                val currentState = homeController?.currentState()
+                currentState?.let {
+                    uiBinder.showAccess(it.access)
+                    timerController.syncAccessRemaining(it.access.remainingSeconds)
+                    uiBinder.showConnection(it.connection)
+                    lastRenderedConnectionState = it.connection
+                    updatePowerButtonState(it.connection)
+                    stopConnectionTimerIfInactive(it.connection)
+                }
+                val userMessage = userFacingMessage(result.text)
+                val pendingConnection =
+                    currentState?.connection is HomeConnectionState.Connecting &&
+                        userMessage.startsWith(
+                            getString(R.string.journal_connecting_title)
+                        )
+                if (!pendingConnection) {
+                    AppLogStore.add(this, "Information • $userMessage")
+                    Toast.makeText(
+                        this,
+                        userMessage,
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+
+            HomeControllerResult.LoginRequired -> {
+                AppLogStore.add(this, "Accès non actif : essai ou abonnement requis.")
+                accessRemainingTime.text = "00:00:00"
+                accessStatus.setText(R.string.activate_access_short)
+                Toast.makeText(
+                    this,
+                    R.string.activate_access_long,
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }
+    }
+
+    private fun updateGiftVisibility() {
+        if (!::buttonFreeTrial.isInitialized || isDestroyed) return
+        buttonFreeTrial.visibility = if (TrialUsageStore.wasUsed(this) == false) View.VISIBLE else View.GONE
+        buttonFreeTrial.isEnabled = !trialActivationInProgress
+        scheduleWeeklyGiftRefresh()
+    }
+
+    private fun updatePowerButtonState(state: HomeConnectionState) {
+        if (!::powerButton.isInitialized) return
+        powerButton.setBackgroundResource(
+            if (state is HomeConnectionState.Connected) {
+                R.drawable.bg_power_connected
+            } else {
+                R.drawable.bg_power_final
+            }
+        )
+    }
+
+    private fun vibrateOnce(durationMs: Long) {
+        if (!::powerButton.isInitialized || isFinishing || isDestroyed) return
+        runOnUiThread {
+            if (!::powerButton.isInitialized || isFinishing || isDestroyed) {
+                return@runOnUiThread
+            }
+            runCatching {
+                val isConnectedPulse = durationMs >= CONNECTED_VIBRATION_MS
+                val feedbackType = if (isConnectedPulse) {
+                    HapticFeedbackConstants.LONG_PRESS
+                } else {
+                    HapticFeedbackConstants.VIRTUAL_KEY
+                }
+                powerButton.performHapticFeedback(
+                    feedbackType,
+                    HapticFeedbackConstants.FLAG_IGNORE_VIEW_SETTING or
+                        HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING
+                )
+
+                val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    getSystemService(VibratorManager::class.java).defaultVibrator
+                } else {
+                    @Suppress("DEPRECATION")
+                    getSystemService(VIBRATOR_SERVICE) as Vibrator
+                }
+
+                if (!vibrator.hasVibrator()) {
+                    AppLogStore.add(this, "Vibration indisponible sur cet appareil.")
+                    return@runCatching
+                }
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    val effect = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        VibrationEffect.createPredefined(
+                            if (isConnectedPulse) {
+                                VibrationEffect.EFFECT_HEAVY_CLICK
+                            } else {
+                                VibrationEffect.EFFECT_CLICK
+                            }
+                        )
+                    } else {
+                        VibrationEffect.createOneShot(durationMs, MAX_VIBRATION_AMPLITUDE)
+                    }
+                    val attributes = AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
+                        .build()
+                    vibrator.vibrate(effect, attributes)
+                } else {
+                    @Suppress("DEPRECATION")
+                    vibrator.vibrate(durationMs)
+                }
+            }.onFailure {
+                AppLogStore.add(this, "Vibration impossible • ${it.message ?: "erreur Android"}.")
+            }
+        }
+    }
+
+    private fun stopConnectionTimerIfInactive(state: HomeConnectionState) {
+        if (state !is HomeConnectionState.Connected && state !is HomeConnectionState.Connecting) {
+            timerController.stopConnectionTimer()
+        }
+    }
+
+    private fun openJournal() {
+        journalUiBinder.refresh()
+        homeJournalPager.setCurrentItem(PAGE_JOURNAL, true)
+    }
+
+    private fun openHome() {
+        homeJournalPager.setCurrentItem(PAGE_HOME, true)
+    }
+
+    private fun copyNetworkIp() {
+        val ipAddress = networkIpValue.text.toString().trim()
+        if (
+            ipAddress.isBlank() ||
+            ipAddress.equals(getString(R.string.unavailable), ignoreCase = true) ||
+            ipAddress.equals("Indisponible", ignoreCase = true) ||
+            ipAddress == getString(R.string.network_ip_offline) ||
+            ipAddress == "—"
+        ) {
+            Toast.makeText(this, R.string.ip_unavailable_toast, Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val clipboard = getSystemService(ClipboardManager::class.java)
+        clipboard.setPrimaryClip(
+            ClipData.newPlainText(getString(R.string.ip_clipboard_label), ipAddress)
+        )
+        AppLogStore.add(this, "Adresse IP copiée.")
+        Toast.makeText(this, R.string.ip_copied_toast, Toast.LENGTH_SHORT).show()
+    }
+
+    private fun userFacingMessage(value: String): String {
+        val hasTechnicalConnectionDetail = TECHNICAL_CONNECTION_TERMS.containsMatchIn(value) ||
+            value.contains("out of range", ignoreCase = true)
+        if (hasTechnicalConnectionDetail) {
+            return getString(R.string.connection_pending_help)
+        }
+        return when (value) {
+            "Connexion en cours. Appuie sur le bouton pour arrêter puis réessaie." ->
+                getString(R.string.connection_pending_help)
+            "Choisis d’abord un réseau." -> getString(R.string.choose_network_first)
+            "Aucun accès actif." -> getString(R.string.no_access_active)
+            "Le VPN est toujours connecté." -> getString(R.string.vpn_still_connected)
+            "Déconnexion refusée." -> getString(R.string.disconnect_refused)
+            "L’essai gratuit de cet appareil a déjà été utilisé." ->
+                getString(R.string.trial_already_used)
+            "L’essai gratuit n’est pas disponible sur cet appareil." ->
+                getString(R.string.trial_not_available_device)
+            else -> value
+        }
+    }
+
+    private fun loadSelectedNetwork(): NetworkOption {
+        val preferences = getSharedPreferences(PREFERENCES_NAME, MODE_PRIVATE)
+        val installId = vpnProfileRepository.currentInstallId()
+        // The legacy sync stamp preserves choices on an ordinary app update.
+        val selectionInstallId = preferences.getString(PREF_SELECTED_NETWORK_INSTALL_ID, null)
+            ?: preferences.getString(PREF_INITIAL_REMOTE_SYNC_INSTALL_ID, null)
+        val savedId = preferences.getString(PREF_SELECTED_NETWORK, null)
+            .takeIf { selectionInstallId == null || selectionInstallId == installId }
+        val network = NetworkOption.ALL.firstOrNull { it.id == savedId }
+            ?: NetworkOption.ALL.first { it.id == "moov_bf" }
+        if (preferences.getString(PREF_SELECTED_NETWORK_INSTALL_ID, null) != installId ||
+            preferences.getString(PREF_SELECTED_NETWORK, null) != network.id) {
+            saveSelectedNetwork(network)
+        }
+        return network
+    }
+
+    private fun saveSelectedNetwork(network: NetworkOption) {
+        getSharedPreferences(PREFERENCES_NAME, MODE_PRIVATE)
+            .edit()
+            .putString(PREF_SELECTED_NETWORK, network.id)
+            .putString(PREF_SELECTED_NETWORK_INSTALL_ID, vpnProfileRepository.currentInstallId())
+            .commit()
+    }
+
+    private fun restoreSelectedNetworkSelection() {
+        val persistedNetwork = loadSelectedNetwork()
+        selectedNetwork = persistedNetwork
+        val controller = homeController
+        if (controller == null) {
+            uiBinder.showNetwork(persistedNetwork)
+            updateSelectedNetworkLogo(persistedNetwork)
+            return
+        }
+        if (controller.currentState().selectedNetwork?.id != persistedNetwork.id) {
+            handleHomeResult(controller.selectNetwork(persistedNetwork))
+        }
+    }
+
+    fun showApkDownload() {
+        openHome()
+        homeDownload.resume()
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        showApkDownload()
+    }
+
+    private fun sideMenuWidth(): Int {
+        val width = window.decorView.width.takeIf { it > 0 } ?: resources.displayMetrics.widthPixels
+        val position = IntArray(2)
+        homeBrandName.getLocationInWindow(position)
+        val index = homeBrandName.text.toString().indexOf("Tunnel")
+        val boundary = if (index >= 0 && homeBrandName.layout != null) {
+            position[0] + homeBrandName.totalPaddingLeft + homeBrandName.layout.getPrimaryHorizontal(index).toInt()
+        } else (width * 0.38f).toInt()
+        return (width - boundary).coerceIn((width * 0.55f).toInt(), (width * 0.90f).toInt())
+    }
+
+    private var sideMenuDialog: Dialog? = null
+
+    private fun showSideMenu() {
+        if (sideMenuDialog?.isShowing == true) return
+        val dialog = Dialog(this)
+        sideMenuDialog = dialog
+        dialog.setOnDismissListener { sideMenuDialog = null }
+        dialog.setContentView(R.layout.dialog_side_menu)
+
+        dialog.window?.apply {
+            setBackgroundDrawable(
+                ColorDrawable(Color.TRANSPARENT)
+            )
+            setGravity(Gravity.RIGHT)
+            setWindowAnimations(R.style.BarkaSideMenuAnimation)
+            setLayout(
+                sideMenuWidth(),
+                WindowManager.LayoutParams.MATCH_PARENT
+            )
+        }
+
+        dialog.findViewById<android.view.View>(R.id.menuHome)
+            .setOnClickListener {
+                dialog.dismiss()
+            }
+        dialog.findViewById<android.view.View>(R.id.menuClose)
+            .setOnClickListener { dialog.dismiss() }
+
+        dialog.findViewById<android.view.View>(R.id.menuGuide)
+            .setOnClickListener {
+                dialog.dismiss()
+                startActivity(Intent(this, GuideActivity::class.java))
+            }
+
+        dialog.findViewById<android.view.View>(R.id.menuSubscription)
+            .setOnClickListener {
+                dialog.dismiss()
+                startActivity(Intent(this, SubscriptionActivity::class.java))
+            }
+
+        dialog.findViewById<android.view.View>(R.id.menuActivation)
+            .setOnClickListener {
+                dialog.dismiss()
+                startActivity(Intent(this, ActivationActivity::class.java))
+            }
+
+        dialog.findViewById<android.view.View>(R.id.menuJournal)
+            .setOnClickListener {
+                dialog.dismiss()
+                openJournal()
+            }
+
+        dialog.findViewById<android.view.View>(R.id.menuIpFinder)
+            .setOnClickListener {
+                dialog.dismiss()
+                startActivity(
+                    Intent(this, IpFinderActivity::class.java)
+                )
+            }
+
+        dialog.findViewById<android.view.View>(R.id.menuSettings)
+            .setOnClickListener {
+                dialog.dismiss()
+                startActivity(
+                    Intent(this, SettingsActivity::class.java)
+                )
+            }
+
+        dialog.findViewById<TextView>(R.id.menuVersion).text =
+            getString(R.string.version_format, BuildConfig.VERSION_NAME)
+
+        dialog.findViewById<android.view.View>(R.id.menuReseller)
+            .setOnClickListener {
+                dialog.dismiss()
+                startActivity(Intent(this, com.serenetunnel.app.reseller.ResellerPurchaseActivity::class.java))
+            }
+
+        dialog.findViewById<android.view.View>(R.id.menuSuggestions).setOnClickListener {
+            dialog.dismiss()
+            startActivity(Intent(this, com.serenetunnel.app.suggestions.SuggestionsActivity::class.java))
+        }
+
+        dialog.findViewById<android.view.View>(R.id.menuSupport)
+            .setOnClickListener {
+                dialog.dismiss()
+                startActivity(Intent(this, SupportActivity::class.java))
+            }
+
+        dialog.show()
+        dialog.window?.decorView?.let(PressFeedback::applyToTree)
+
+        dialog.window?.apply {
+            navigationBarColor = ContextCompat.getColor(this@MainActivity, R.color.barka_card)
+            setLayout(
+                sideMenuWidth(),
+                WindowManager.LayoutParams.MATCH_PARENT
+            )
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun configureFirstLaunchChannelBanner() {
+        val preferences = getSharedPreferences(PREFERENCES_NAME, MODE_PRIVATE)
+        val currentInstallStamp = runCatching {
+            packageManager.getPackageInfo(packageName, 0).lastUpdateTime
+        }.getOrDefault(0L)
+
+        if (
+            currentInstallStamp <= 0L ||
+            preferences.getLong(PREF_CHANNEL_INVITE_INSTALL_STAMP, Long.MIN_VALUE) == currentInstallStamp
+        ) {
+            return
+        }
+
+        val dialog = Dialog(this)
+        dialog.setContentView(R.layout.dialog_channel_invite)
+        dialog.setCancelable(false)
+        dialog.setCanceledOnTouchOutside(false)
+
+        fun markHandledAndClose() {
+            preferences.edit()
+                .putLong(PREF_CHANNEL_INVITE_INSTALL_STAMP, currentInstallStamp)
+                .apply()
+            dialog.dismiss()
+        }
+
+        dialog.findViewById<View>(R.id.channelInviteClose).setOnClickListener {
+            markHandledAndClose()
+        }
+        dialog.findViewById<View>(R.id.channelInviteJoinButton).setOnClickListener {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(TELEGRAM_CHANNEL_URL))
+            runCatching {
+                startActivity(intent)
+            }.onSuccess {
+                markHandledAndClose()
+            }.onFailure {
+                Toast.makeText(
+                    this,
+                    R.string.channel_invite_open_failed,
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
+
+        dialog.show()
+        dialog.window?.decorView?.let(PressFeedback::applyToTree)
+        dialog.window?.apply {
+            setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+            addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+            attributes = attributes.apply {
+                dimAmount = 0.58f
+                gravity = Gravity.CENTER
+            }
+            setLayout(
+                (resources.displayMetrics.widthPixels * 0.90f).toInt(),
+                WindowManager.LayoutParams.WRAP_CONTENT
+            )
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun applyRecentsTaskIcon() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            setTaskDescription(ActivityManager.TaskDescription(
+                getString(R.string.app_name), R.mipmap.ic_launcher, Color.WHITE
+            ))
+            return
+        }
+        val drawable = ContextCompat.getDrawable(this, R.drawable.ic_barka_logo) ?: return
+        val size = (72f * resources.displayMetrics.density).toInt().coerceAtLeast(72)
+        val inset = (4f * resources.displayMetrics.density).toInt()
+        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        drawable.setBounds(inset, inset, size - inset, size - inset)
+        drawable.draw(canvas)
+        setTaskDescription(
+            ActivityManager.TaskDescription(
+                getString(R.string.app_name),
+                bitmap,
+                Color.WHITE
+            )
+        )
+    }
+
+    private fun applyRootSystemInsets() {
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        val root = findViewById<View>(R.id.homeJournalRoot)
+        ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
+            val bars = insets.getInsets(
+                WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
+            )
+            view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+            insets
+        }
+        ViewCompat.requestApplyInsets(root)
+    }
+
+    private fun requestUpdateNotificationPermissionIfNeeded() {
+        if (
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            updateNotificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+
+    private fun isInitialProfileSyncComplete(): Boolean =
+        vpnProfileRepository.hasSuccessfulSyncForCurrentInstall()
+
+    private fun isInitialRemoteSyncComplete(): Boolean {
+        val prefs = getSharedPreferences(PREFERENCES_NAME, MODE_PRIVATE)
+        return prefs.getBoolean(PREF_INITIAL_REMOTE_SYNC_COMPLETE, false) &&
+            prefs.getString(PREF_INITIAL_REMOTE_SYNC_INSTALL_ID, null) ==
+                vpnProfileRepository.currentInstallId() &&
+            isInitialProfileSyncComplete()
+    }
+
+    private fun ensureInitialRemoteSync() {
+        if (isInitialRemoteSyncComplete()) {
+            mainHandler.removeCallbacks(initialSyncRetryRunnable)
+            resumePendingConnectionAfterInitialSync()
+            return
+        }
+        if (!::updateCoordinator.isInitialized) return
+        if (!initialSyncInProgress.compareAndSet(false, true)) return
+
+        mainHandler.removeCallbacks(initialSyncRetryRunnable)
+        if (isInitialProfileSyncComplete()) {
+            checkInitialAppUpdate()
+            return
+        }
+
+        AppLogStore.add(this, "Synchronisation des profils…")
+        Thread {
+            when (val sync = vpnProfileRepository.refreshCatalog()) {
+                is com.serenetunnel.app.vpnprofile.VpnProfileSyncResult.Success -> {
+                    AppLogStore.add(
+                        this,
+                        if (sync.updatedCount > 0) "Profils mis à jour." else "Profils à jour."
+                    )
+                    runOnUiThread {
+                        selectedNetwork?.let { selected ->
+                            networkSubtitle.text = if (vpnProfileRepository.isMaintenance(selected.id)) {
+                                getString(R.string.network_maintenance_badge)
+                            } else {
+                                getString(R.string.selected_network_subtitle)
+                            }
+                        }
+                        checkInitialAppUpdate()
+                    }
+                }
+
+                is com.serenetunnel.app.vpnprofile.VpnProfileSyncResult.Error -> {
+                    AppLogStore.add(
+                        this,
+                        "Initialisation Internet reportée • ${sync.message}"
+                    )
+                    initialSyncInProgress.set(false)
+                    runOnUiThread { scheduleInitialRemoteSyncRetry() }
+                }
+            }
+        }.start()
+    }
+
+    private fun checkInitialAppUpdate() {
+        AppLogStore.add(this, "Vérification des mises à jour…")
+        updateCoordinator.check(
+            showNoUpdate = false,
+            force = true
+        ) { update ->
+            initialSyncInProgress.set(false)
+            if (update == null) {
+                scheduleInitialRemoteSyncRetry()
+                return@check
+            }
+
+            getSharedPreferences(PREFERENCES_NAME, MODE_PRIVATE)
+                .edit()
+                .putBoolean(PREF_INITIAL_REMOTE_SYNC_COMPLETE, true)
+                .putString(
+                    PREF_INITIAL_REMOTE_SYNC_INSTALL_ID,
+                    vpnProfileRepository.currentInstallId()
+                )
+                .apply()
+            mainHandler.removeCallbacks(initialSyncRetryRunnable)
+            if (!update.updateAvailable) {
+                AppLogStore.add(this, "Barka Tunnel est à jour.")
+            }
+            resumePendingConnectionAfterInitialSync()
+        }
+    }
+
+    private fun scheduleInitialRemoteSyncRetry() {
+        if (isInitialRemoteSyncComplete() || isFinishing || isDestroyed) return
+        mainHandler.removeCallbacks(initialSyncRetryRunnable)
+        mainHandler.postDelayed(initialSyncRetryRunnable, INITIAL_SYNC_RETRY_DELAY_MS)
+    }
+
+    private fun resumePendingConnectionAfterInitialSync() {
+        if (!pendingConnectAfterInitialSync || !isInitialRemoteSyncComplete()) return
+        pendingConnectAfterInitialSync = false
+        val controller = homeController ?: return
+        continueVpnConnection(controller)
+    }
+
+    private fun applySystemBars() {
+        window.statusBarColor = ContextCompat.getColor(this, R.color.barka_background)
+        window.navigationBarColor = ContextCompat.getColor(this, R.color.barka_background)
+        val nightMode = resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK
+        val lightIcons = nightMode != android.content.res.Configuration.UI_MODE_NIGHT_YES
+        WindowCompat.getInsetsController(window, window.decorView)?.apply {
+            isAppearanceLightStatusBars = lightIcons
+            isAppearanceLightNavigationBars = lightIcons
+        }
+    }
+
+    private fun maybeSyncVpnProfiles() {
+        if (!isInitialRemoteSyncComplete()) {
+            ensureInitialRemoteSync()
+            return
+        }
+        if (
+            (!vpnProfileRepository.hasValidatedInternet() && BarkaVpnService.connectedSocksPort() == null) ||
+            !vpnProfileRepository.shouldRefresh(PROFILE_SYNC_INTERVAL_MS)
+        ) {
+            return
+        }
+        refreshVpnServices(force = false)
+    }
+
+    private fun refreshVpnServices(force: Boolean) {
+        if (
+            (!vpnProfileRepository.hasValidatedInternet() && BarkaVpnService.connectedSocksPort() == null) ||
+            (!force && !vpnProfileRepository.shouldRefresh(PROFILE_SYNC_INTERVAL_MS))
+        ) {
+            return
+        }
+        if (!profileSyncInProgress.compareAndSet(false, true)) return
+        Thread {
+            try {
+                when (val result = vpnProfileRepository.refreshCatalog()) {
+                    is com.serenetunnel.app.vpnprofile.VpnProfileSyncResult.Success -> {
+                        AppLogStore.add(
+                            this,
+                            if (result.updatedCount > 0) "Profils mis à jour." else "Profils à jour."
+                        )
+                        runOnUiThread {
+                            selectedNetwork?.let { selected ->
+                                networkSubtitle.text = if (vpnProfileRepository.isMaintenance(selected.id)) {
+                                    getString(R.string.network_maintenance_badge)
+                                } else {
+                                    getString(R.string.selected_network_subtitle)
+                                }
+                            }
+                        }
+                        if (result.updatedCount > 0) {
+                            runOnUiThread {
+                                if (homePageResumed && !isFinishing && !isDestroyed) {
+                                    com.serenetunnel.app.ui.common.UpdateSuccessFeedback.showOnce(
+                                        this@MainActivity, R.string.config_update_applied_message,
+                                        result.profiles.sortedBy { it.networkId }.joinToString("|") {
+                                            "${it.networkId}:${it.version}:${it.updatedAt}"
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    is com.serenetunnel.app.vpnprofile.VpnProfileSyncResult.Error -> {
+                        AppLogStore.add(
+                            this,
+                            "Synchronisation reportée • ${result.message}"
+                        )
+                    }
+                }
+            } finally {
+                profileSyncInProgress.set(false)
+            }
+        }.start()
+    }
+
+    private fun refreshNetworkIp() {
+        val info = NetworkIpProvider.getCurrent(
+            this,
+            includeVpn = BarkaVpnService.connectionSnapshot().state !=
+                BarkaVpnService.RuntimeConnectionState.DISCONNECTED
+        )
+        val cellularIp = info.ip.takeIf {
+            info.transportType == NetworkTransport.CELLULAR &&
+                it.isNotBlank() &&
+                it != getString(R.string.unavailable)
+        }
+
+        networkIpValue.text = if (info.transportType == NetworkTransport.OTHER) {
+            getString(R.string.network_ip_offline)
+        } else {
+            info.ip
+        }
+        networkIpStatus.text = getString(
+            R.string.current_ip_status_format,
+            info.transport
+        )
+
+        val isVpnInterfaceIp = info.ip == "10.10.0.1" &&
+            (info.transportType == NetworkTransport.CELLULAR || info.transportType == NetworkTransport.VPN)
+        val visualState = when {
+            isVpnInterfaceIp -> NetworkIpVisualState.VALID
+            cellularIp == null -> NetworkIpVisualState.NEUTRAL
+            selectedNetwork?.id == "orange_bf" -> {
+                if (IpFinderActivity.isIpCompatible(this, cellularIp)) {
+                    NetworkIpVisualState.VALID
+                } else {
+                    NetworkIpVisualState.INVALID
+                }
+            }
+            selectedNetwork?.id == "moov_bf" || selectedNetwork?.id == "telecel_bf" -> {
+                if (NetworkIpProvider.isTenNetworkAtLeast100(cellularIp)) {
+                    NetworkIpVisualState.VALID
+                } else {
+                    NetworkIpVisualState.INVALID
+                }
+            }
+            else -> NetworkIpVisualState.NEUTRAL
+        }
+        applyNetworkIpVisualState(visualState)
+        showOrangeIpWarningIfNeeded(cellularIp.takeUnless { isVpnInterfaceIp })
+
+        if (::networkTransportIcon.isInitialized) {
+            when (info.transportType) {
+                NetworkTransport.CELLULAR -> {
+                    networkTransportIcon.setImageResource(R.drawable.ic_mobile_barka)
+                    networkTransportIcon.visibility = View.VISIBLE
+                }
+                NetworkTransport.WIFI, NetworkTransport.VPN -> {
+                    networkTransportIcon.setImageResource(R.drawable.ic_wifi_barka)
+                    networkTransportIcon.visibility = View.VISIBLE
+                }
+                NetworkTransport.OTHER -> {
+                    networkTransportIcon.visibility = View.GONE
+                }
+            }
+        }
+    }
+
+    private fun applyNetworkIpVisualState(state: NetworkIpVisualState) {
+        val background = when (state) {
+            NetworkIpVisualState.NEUTRAL -> R.drawable.bg_card_final
+            NetworkIpVisualState.VALID -> R.drawable.bg_network_ip_valid
+            NetworkIpVisualState.INVALID -> R.drawable.bg_network_ip_invalid
+        }
+        val valueColor = when (state) {
+            NetworkIpVisualState.NEUTRAL -> R.color.barka_text
+            NetworkIpVisualState.VALID -> R.color.barka_green
+            NetworkIpVisualState.INVALID -> R.color.barka_red
+        }
+        val statusColor = when (state) {
+            NetworkIpVisualState.NEUTRAL -> R.color.barka_text_secondary
+            NetworkIpVisualState.VALID -> R.color.barka_green
+            NetworkIpVisualState.INVALID -> R.color.barka_red
+        }
+        networkIpCard.setBackgroundResource(background)
+        networkIpValue.setTextColor(ContextCompat.getColor(this, valueColor))
+        networkIpStatus.setTextColor(ContextCompat.getColor(this, statusColor))
+    }
+
+    private fun refreshNetworkIpAsync() {
+        if (!::networkIpValue.isInitialized) return
+        runOnUiThread { refreshNetworkIp() }
+    }
+
+    private fun updateSelectedNetworkLogo(
+        network: NetworkOption?
+    ) {
+        val drawable = when (network?.id) {
+            "moov_tiktok" -> R.drawable.ic_tiktok_official
+            "orange_bf" -> R.drawable.ic_operator_orange
+            "telecel_bf" -> R.drawable.ic_operator_telecel
+            "global_world" -> R.drawable.global_africa_red
+            else -> R.drawable.moov_africa_official
+        }
+
+        networkLogo.setImageResource(drawable)
+        val logoSize = resources.getDimensionPixelSize(R.dimen.home_network_logo_size)
+        val inset = if (network?.id in listOf("moov_tiktok", "global_world")) logoSize / 4 else 0
+        networkLogo.setPadding(inset, inset, inset, inset)
+        val global = network?.id == "global_world"
+        networkFlagBurkina.setImageResource(if (global) R.drawable.ic_global_world else R.drawable.ic_flag_bf)
+        networkFlagBurkina.contentDescription = if (global) getString(R.string.global_coverage) else getString(R.string.burkina_faso)
+        val showMoovCountries = network?.id == "moov_bf"
+        networkFlagNiger.visibility = if (showMoovCountries) {
+            android.view.View.VISIBLE
+        } else {
+            android.view.View.GONE
+        }
+        networkFlagTogo.visibility = if (showMoovCountries) {
+            android.view.View.VISIBLE
+        } else {
+            android.view.View.GONE
+        }
+    }
+
+    private fun formatDuration(
+        totalSeconds: Long
+    ): String {
+        val safe = totalSeconds.coerceAtLeast(0L)
+        val hours = safe / 3600L
+        val minutes = (safe % 3600L) / 60L
+        val seconds = safe % 60L
+
+        return String.format(
+            "%02d:%02d:%02d",
+            hours,
+            minutes,
+            seconds
+        )
+    }
+
+    companion object {
+        private const val PREFERENCES_NAME = "barka_home_preferences"
+        private const val PREF_SELECTED_NETWORK = "selected_network_id"
+        private const val PREF_SELECTED_NETWORK_INSTALL_ID = "selected_network_install_id"
+        private const val PREF_INITIAL_REMOTE_SYNC_COMPLETE = "initial_remote_sync_complete"
+        private const val PREF_INITIAL_REMOTE_SYNC_INSTALL_ID = "initial_remote_sync_install_id"
+        private const val PREF_CHANNEL_INVITE_INSTALL_STAMP = "channel_invite_install_stamp"
+        private const val TELEGRAM_CHANNEL_URL = "https://t.me/barkaTunnel"
+        private const val PRESS_VIBRATION_MS = 80L
+        private const val CONNECTED_VIBRATION_MS = 160L
+        private const val MAX_VIBRATION_AMPLITUDE = 255
+        private const val PAGE_HOME = 0
+        private const val PAGE_JOURNAL = 1
+        private const val PROFILE_SYNC_INTERVAL_MS = 6L * 60L * 60L * 1000L
+        private const val INITIAL_SYNC_RETRY_DELAY_MS = 2_500L
+        private const val CONNECT_CANCEL_GUARD_MS = 600L
+        private const val VPN_STATE_RECONCILE_INTERVAL_MS = 400L
+        private val TECHNICAL_CONNECTION_TERMS = Regex(
+            "(?i)\\b(vless|slowdns|udp|c6|tun2socks|xray|dnstt|socks|udpgw|port)\\b"
+        )
+    }
+}
