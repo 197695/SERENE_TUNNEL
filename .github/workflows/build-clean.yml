@@ -93,7 +93,7 @@ jobs:
           test -n "$SERENE_KEY_ALIAS_SECRET" || { echo "Secret SERENE_KEY_ALIAS manquant"; exit 1; }
           test -n "$SERENE_STORE_PASSWORD_SECRET" || { echo "Secret SERENE_STORE_PASSWORD manquant"; exit 1; }
           test -n "$SERENE_KEY_PASSWORD_SECRET" || { echo "Secret SERENE_KEY_PASSWORD manquant"; exit 1; }
-          KEYSTORE_PATH="$RUNNER_TEMP/serene-tunnel-release.jks"
+          KEYSTORE_PATH="$RUNNER_TEMP/SERENE_TUNNEL-release.jks"
           printf '%s' "$SERENE_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
           keytool -list -keystore "$KEYSTORE_PATH" -storepass "$SERENE_STORE_PASSWORD_SECRET" -alias "$SERENE_KEY_ALIAS_SECRET" >/dev/null
           echo "SERENE_SIGNING_STORE_FILE=$KEYSTORE_PATH" >> "$GITHUB_ENV"
@@ -166,7 +166,7 @@ jobs:
           REMOTE_TMP="/tmp/SereneTunnel-${GITHUB_SHA}.apk"
           BACKEND_ARCHIVE="SereneBackend-${GITHUB_SHA}.tar.gz"
           REMOTE_BACKEND="/tmp/${BACKEND_ARCHIVE}"
-          REMOTE_APK="/opt/Serene-Tunnel/backend/data/releases/SereneTunnel.apk"
+          REMOTE_APK="/opt/SERENE_TUNNEL/backend/data/releases/SereneTunnel.apk"
 
           install -d -m 700 "$HOME/.ssh"
           printf '%s\n' "$SERENE_VPS_SSH_KEY" > "$HOME/.ssh/SERENE_vps_key"
@@ -187,7 +187,7 @@ jobs:
             "$SERENE_VPS_USER@$SERENE_VPS_HOST" \
             "SERENE_DEPLOY_SHA='$GITHUB_SHA' SERENE_REMOTE_APK='$REMOTE_TMP' SERENE_REMOTE_BACKEND='$REMOTE_BACKEND' SERENE_BACKEND_SHA256='$BACKEND_SHA256' SERENE_FINAL_APK='$REMOTE_APK' bash -s" <<'REMOTE_SCRIPT'
           set -euo pipefail
-          SERENE_BACKEND_ROOT="/opt/Serene-Tunnel/backend"
+          SERENE_BACKEND_ROOT="/opt/SERENE_TUNNEL/backend"
           SERENE_BACKUP_ROOT="$(mktemp -d /tmp/SereneBackendBackup.XXXXXX)"
 
           test -f "$SERENE_BACKEND_ROOT/.env"

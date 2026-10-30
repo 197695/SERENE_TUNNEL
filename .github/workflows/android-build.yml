@@ -54,7 +54,7 @@ jobs:
           test -n "$SERENE_KEY_ALIAS_SECRET" || { echo "Secret SERENE_KEY_ALIAS manquant"; exit 1; }
           test -n "$SERENE_STORE_PASSWORD_SECRET" || { echo "Secret SERENE_STORE_PASSWORD manquant"; exit 1; }
           test -n "$SERENE_KEY_PASSWORD_SECRET" || { echo "Secret SERENE_KEY_PASSWORD manquant"; exit 1; }
-          KEYSTORE_PATH="$RUNNER_TEMP/Serene-tunnel-release.jks"
+          KEYSTORE_PATH="$RUNNER_TEMP/SERENE_TUNNEL-release.jks"
           printf '%s' "$SERENE_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
           keytool -list -keystore "$KEYSTORE_PATH" -storepass "$SERENE_STORE_PASSWORD_SECRET" -alias "$SERENE_KEY_ALIAS_SECRET" >/dev/null
           echo "SERENE_SIGNING_STORE_FILE=$KEYSTORE_PATH" >> "$GITHUB_ENV"
@@ -68,6 +68,6 @@ jobs:
       - name: Publier APK Serene Tunnel
         uses: actions/upload-artifact@v4
         with:
-          name: Serene-Tunnel-APK
+          name: SERENE_TUNNEL-APK
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
