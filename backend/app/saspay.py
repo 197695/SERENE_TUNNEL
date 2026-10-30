@@ -58,15 +58,15 @@ async def create_payment(
         "currency": currency,
         "description": description,
         "country": settings.saspay_country,
-        "customer_name": customer_name or "Client Barka Tunnel",
+        "customer_name": customer_name or "Client Serene Tunnel",
         "customer_email": customer_email or "paiement@rhaffservice.shop",
         "return_url": (
             f"{settings.public_base_url}/payment-return"
             f"?reference={quote(external_reference)}"
         ),
         "metadata": {
-            "barka_reference": external_reference,
-            "source": "barka_tunnel",
+            "serene_reference": external_reference,
+            "source": "serene_tunnel",
         },
     }
 
@@ -140,5 +140,5 @@ def validate_paid_session(session_id: str, payload: dict) -> None:
         raise SasPayError("Montant ou devise de paiement incohérent")
     metadata = payload.get("metadata")
     if metadata is not None and (not isinstance(metadata, dict) or
-            ("barka_reference" in metadata and metadata["barka_reference"] != payment["reference"])):
+            ("serene_reference" in metadata and metadata["serene_reference"] != payment["reference"])):
         raise SasPayError("Référence de paiement incohérente")

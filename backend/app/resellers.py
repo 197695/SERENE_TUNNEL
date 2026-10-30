@@ -63,7 +63,7 @@ def _recoverable_password(nonce: str) -> str:
     if not settings.code_secret or settings.code_secret == "CHANGE_ME":
         raise RuntimeError("CODE_SECRET n'est pas configuré")
     digest = hmac.new(settings.code_secret.encode("utf-8"),
-                      ("barka-reseller-password-v1:" + nonce).encode("ascii"),
+                      ("serene-reseller-password-v1:" + nonce).encode("ascii"),
                       hashlib.sha256).digest()
     return "Bt7!" + base64.urlsafe_b64encode(digest).decode("ascii")[:24]
 

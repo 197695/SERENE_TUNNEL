@@ -161,7 +161,7 @@ def init_db() -> None:
                     latest_version_code INTEGER NOT NULL DEFAULT 1,
                     latest_version_name TEXT NOT NULL DEFAULT '1.0.0',
                     apk_url TEXT NOT NULL DEFAULT '',
-                    message TEXT NOT NULL DEFAULT 'Une nouvelle version de Barka Tunnel est disponible.',
+                    message TEXT NOT NULL DEFAULT 'Une nouvelle version de Serene Tunnel est disponible.',
                     mandatory INTEGER NOT NULL DEFAULT 0,
                     updated_at INTEGER NOT NULL
                 );
@@ -344,7 +344,7 @@ def init_db() -> None:
                     id, enabled, latest_version_code, latest_version_name,
                     apk_url, message, mandatory, updated_at
                 ) VALUES(1,0,1,'1.0.0','',
-                         'Une nouvelle version de Barka Tunnel est disponible.',0,?)
+                         'Une nouvelle version de Serene Tunnel est disponible.',0,?)
                 """,
                 (now,),
             )

@@ -131,7 +131,7 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(
-    title="Barka Tunnel Backend",
+    title="Serene Tunnel Backend",
     version="1.1.0",
     lifespan=lifespan,
     dependencies=[Depends(protect_request)],
@@ -168,7 +168,7 @@ app.include_router(admin_reseller_session_router)
 def health():
     return {
         "ok": True,
-        "service": "barka-tunnel-backend",
+        "service": "serene-tunnel-backend",
         "version": "1.1.0",
         "payment_configured": settings.payment_ready,
     }
@@ -232,7 +232,7 @@ async def payment_start(body: PaymentStartRequest):
         provider = await create_payment(
             amount=quoted_amount,
             currency=plan["currency"],
-            description=f"Barka Tunnel — {plan['label']}",
+            description=f"Serene Tunnel — {plan['label']}",
             external_reference=reference,
             customer_name=body.customer_name,
             customer_email=body.customer_email,
@@ -767,15 +767,15 @@ def admin_app_update_remove():
     return remove_app_update()
 
 
-@app.get("/downloads/BarkaTunnel.apk", include_in_schema=False)
-def download_barka_apk():
+@app.get("/downloads/SereneTunnel.apk", include_in_schema=False)
+def download_serene_apk():
     target = release_apk_path()
     if not target.is_file():
         raise HTTPException(status_code=404, detail="APK non publié")
     return FileResponse(
         target,
         media_type="application/vnd.android.package-archive",
-        filename="BarkaTunnel.apk",
+        filename="SereneTunnel.apk",
         headers={"Cache-Control": "no-cache"},
     )
 

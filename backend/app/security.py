@@ -31,7 +31,7 @@ def activation_code_for_source(source_ref: str) -> str:
         hashlib.sha256,
     ).digest()
     token = base64.b32encode(digest).decode("ascii").rstrip("=")[:12]
-    return f"BARKA-{token[:4]}-{token[4:8]}-{token[8:12]}"
+    return f"SERENE-{token[:4]}-{token[4:8]}-{token[8:12]}"
 
 
 def verify_saspay_signature(

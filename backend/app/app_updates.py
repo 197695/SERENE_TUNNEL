@@ -93,7 +93,7 @@ def upsert_app_update(payload: dict) -> dict:
                 version_code,
                 version_name,
                 apk_url,
-                message or "Une nouvelle version de Barka Tunnel est disponible.",
+                message or "Une nouvelle version de Serene Tunnel est disponible.",
                 1 if mandatory else 0,
                 now_ts(),
             ),
@@ -114,8 +114,8 @@ def remove_app_update() -> dict:
 
 
 def release_apk_path() -> Path:
-    return Path(settings.database_path).parent / "releases" / "BarkaTunnel.apk"
+    return Path(settings.database_path).parent / "releases" / "SereneTunnel.apk"
 
 
 def release_apk_url() -> str:
-    return settings.public_base_url + "/downloads/BarkaTunnel.apk"
+    return settings.public_base_url + "/downloads/SereneTunnel.apk"

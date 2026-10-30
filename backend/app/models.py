@@ -234,7 +234,7 @@ class AppUpdateAdminUpsert(BaseModel):
     latest_version_code: int = Field(default=1, ge=1, le=2_000_000_000)
     latest_version_name: str = Field(default="1.0.0", min_length=1, max_length=50)
     apk_url: str = Field(default="", max_length=1000)
-    message: str = Field(default="Une nouvelle version de Barka Tunnel est disponible.", max_length=500)
+    message: str = Field(default="Une nouvelle version de Serene Tunnel est disponible.", max_length=500)
     mandatory: bool = False
 
 

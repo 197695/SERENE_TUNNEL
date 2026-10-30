@@ -149,7 +149,7 @@ async def start(body: StartRequest, response: Response):
             created=True
     if created:
         try:
-            provider=await saspay.create_payment(amount=amount,currency='XOF',description=f'Barka Tunnel — Sous-panel {body.months} mois',external_reference=reference)
+            provider=await saspay.create_payment(amount=amount,currency='XOF',description=f'Serene Tunnel — Sous-panel {body.months} mois',external_reference=reference)
             from urllib.parse import urlsplit
             url=str(provider['checkout_url']); parsed=urlsplit(url)
             if parsed.scheme!='https' or not parsed.hostname:raise saspay.SasPayError('Lien de paiement invalide')
