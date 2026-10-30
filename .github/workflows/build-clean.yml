@@ -1,4 +1,4 @@
-name: Build propre Serene Tunnel
+name: Build propre SERENE TUNNEL
 
 on:
   workflow_dispatch:
