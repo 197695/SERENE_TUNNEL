@@ -3,7 +3,7 @@ services:
     build:
       context: .
       network: host
-    container_name: barka-backend
+    container_name: serene-backend
     restart: unless-stopped
     env_file:
       - .env
