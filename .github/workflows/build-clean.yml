@@ -25,7 +25,7 @@ jobs:
           echo "HEAD=$(git rev-parse HEAD)"
           git status --short
           echo "===== HomeController.kt ====="
-          sed -n '1,220p' app/src/main/java/com/app/ui/home/HomeController.kt
+          sed -n '1,220p' app/src/main/java/com/serenetunnel/app/ui/home/HomeController.kt
           echo "===== HomeVpnCoordinator.kt ====="
           sed -n '1,220p' app/src/main/java/com/serenetunnel/app/ui/home/HomeVpnCoordinator.kt
           echo "===== HomeVpnResult.kt ====="
