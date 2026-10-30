@@ -1,4 +1,4 @@
-name: Réparer Home Barka Tunnel
+name: Réparer Home Serene Tunnel
 
 on:
   workflow_dispatch:
@@ -39,11 +39,11 @@ jobs:
         shell: bash
         run: |
           set -e
-          HOME_DIR="app/src/main/java/com/barkatunnel/app/ui/home"
+          HOME_DIR="app/src/main/java/com/serenetunnel/app/ui/home"
           mkdir -p "$HOME_DIR"
 
           cat > "$HOME_DIR/HomeVpnResult.kt" <<'EOF'
-          package com.barkatunnel.app.ui.home
+          package com.serenetunnel.app.ui.home
 
           sealed class HomeVpnResult {
 
@@ -62,13 +62,13 @@ jobs:
           EOF
 
           cat > "$HOME_DIR/HomeVpnCoordinator.kt" <<'EOF'
-          package com.barkatunnel.app.ui.home
+          package com.serenetunnel.app.ui.home
 
-          import com.barkatunnel.app.network.ApiResult
-          import com.barkatunnel.app.server.VpnServer
-          import com.barkatunnel.app.server.VpnServerManager
-          import com.barkatunnel.app.vpn.ProtectedVpnController
-          import com.barkatunnel.app.vpn.VpnAccessResult
+          import com.serenetunnel.app.network.ApiResult
+          import com.serenetunnel.app.server.VpnServer
+          import com.serenetunnel.app.server.VpnServerManager
+          import com.serenetunnel.app.vpn.ProtectedVpnController
+          import com.serenetunnel.app.vpn.VpnAccessResult
 
           class HomeVpnCoordinator(
               private val serverManager: VpnServerManager,
@@ -132,9 +132,9 @@ jobs:
           EOF
 
           cat > "$HOME_DIR/HomeController.kt" <<'EOF'
-          package com.barkatunnel.app.ui.home
+          package com.serenetunnel.app.ui.home
 
-          import com.barkatunnel.app.server.VpnServer
+          import com.serenetunnel.app.server.VpnServer
 
           class HomeController(
               private val runtime: HomeRuntime
@@ -275,11 +275,11 @@ jobs:
         shell: bash
         run: |
           set -e
-          grep -n "fun disconnect" app/src/main/java/com/barkatunnel/app/ui/home/HomeController.kt
-          grep -n "fun disconnect" app/src/main/java/com/barkatunnel/app/ui/home/HomeVpnCoordinator.kt
-          grep -n "Disconnected" app/src/main/java/com/barkatunnel/app/ui/home/HomeVpnResult.kt
-          grep -n "VpnAccessResult.Disconnected" app/src/main/java/com/barkatunnel/app/ui/home/HomeVpnCoordinator.kt
-          git diff -- app/src/main/java/com/barkatunnel/app/ui/home/
+          grep -n "fun disconnect" app/src/main/java/com/serenetunnel/app/ui/home/HomeController.kt
+          grep -n "fun disconnect" app/src/main/java/com/serenetunnel/app/ui/home/HomeVpnCoordinator.kt
+          grep -n "Disconnected" app/src/main/java/com/serenetunnel/app/ui/home/HomeVpnResult.kt
+          grep -n "VpnAccessResult.Disconnected" app/src/main/java/com/serenetunnel/app/ui/home/HomeVpnCoordinator.kt
+          git diff -- app/src/main/java/com/serenetunnel/app/ui/home/
 
       - name: Compiler avant enregistrement
         shell: bash
@@ -293,9 +293,9 @@ jobs:
           set -e
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add app/src/main/java/com/barkatunnel/app/ui/home/HomeController.kt
-          git add app/src/main/java/com/barkatunnel/app/ui/home/HomeVpnCoordinator.kt
-          git add app/src/main/java/com/barkatunnel/app/ui/home/HomeVpnResult.kt
+          git add app/src/main/java/com/serenetunnel/app/ui/home/HomeController.kt
+          git add app/src/main/java/com/serenetunnel/app/ui/home/HomeVpnCoordinator.kt
+          git add app/src/main/java/com/serenetunnel/app/ui/home/HomeVpnResult.kt
 
           if git diff --cached --quiet; then
             echo "Aucun changement à enregistrer."

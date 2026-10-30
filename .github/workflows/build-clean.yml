@@ -1,4 +1,4 @@
-name: Build propre Barka Tunnel
+name: Build propre Serene Tunnel
 
 on:
   workflow_dispatch:
@@ -25,13 +25,13 @@ jobs:
           echo "HEAD=$(git rev-parse HEAD)"
           git status --short
           echo "===== HomeController.kt ====="
-          sed -n '1,220p' app/src/main/java/com/barkatunnel/app/ui/home/HomeController.kt
+          sed -n '1,220p' app/src/main/java/com//app/ui/home/HomeController.kt
           echo "===== HomeVpnCoordinator.kt ====="
-          sed -n '1,220p' app/src/main/java/com/barkatunnel/app/ui/home/HomeVpnCoordinator.kt
+          sed -n '1,220p' app/src/main/java/com/serenetunnel/app/ui/home/HomeVpnCoordinator.kt
           echo "===== HomeVpnResult.kt ====="
-          sed -n '1,120p' app/src/main/java/com/barkatunnel/app/ui/home/HomeVpnResult.kt
+          sed -n '1,120p' app/src/main/java/com/serenetunnel/app/ui/home/HomeVpnResult.kt
           echo "===== HomeOrchestrator.kt ====="
-          sed -n '1,180p' app/src/main/java/com/barkatunnel/app/ui/home/HomeOrchestrator.kt
+          sed -n '1,180p' app/src/main/java/com/serenetunnel/app/ui/home/HomeOrchestrator.kt
           echo "===== Recherche doublons ====="
           find app/src/main -type f \( \
             -name 'HomeController.kt' -o \
@@ -83,23 +83,23 @@ jobs:
       - name: Configurer la signature Android stable
         shell: bash
         env:
-          BARKA_KEYSTORE_BASE64: ${{ secrets.BARKA_KEYSTORE_BASE64 }}
-          BARKA_KEY_ALIAS_SECRET: ${{ secrets.BARKA_KEY_ALIAS }}
-          BARKA_STORE_PASSWORD_SECRET: ${{ secrets.BARKA_STORE_PASSWORD }}
-          BARKA_KEY_PASSWORD_SECRET: ${{ secrets.BARKA_KEY_PASSWORD }}
+          SERENE_KEYSTORE_BASE64: ${{ secrets.SERENE_KEYSTORE_BASE64 }}
+          SERENE_KEY_ALIAS_SECRET: ${{ secrets.SERENE_KEY_ALIAS }}
+          SERENE_STORE_PASSWORD_SECRET: ${{ secrets.SERENE_STORE_PASSWORD }}
+          SERENE_KEY_PASSWORD_SECRET: ${{ secrets.SERENE_KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          test -n "$BARKA_KEYSTORE_BASE64" || { echo "Secret BARKA_KEYSTORE_BASE64 manquant"; exit 1; }
-          test -n "$BARKA_KEY_ALIAS_SECRET" || { echo "Secret BARKA_KEY_ALIAS manquant"; exit 1; }
-          test -n "$BARKA_STORE_PASSWORD_SECRET" || { echo "Secret BARKA_STORE_PASSWORD manquant"; exit 1; }
-          test -n "$BARKA_KEY_PASSWORD_SECRET" || { echo "Secret BARKA_KEY_PASSWORD manquant"; exit 1; }
-          KEYSTORE_PATH="$RUNNER_TEMP/barka-tunnel-release.jks"
-          printf '%s' "$BARKA_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
-          keytool -list -keystore "$KEYSTORE_PATH" -storepass "$BARKA_STORE_PASSWORD_SECRET" -alias "$BARKA_KEY_ALIAS_SECRET" >/dev/null
-          echo "BARKA_SIGNING_STORE_FILE=$KEYSTORE_PATH" >> "$GITHUB_ENV"
-          echo "BARKA_SIGNING_STORE_PASSWORD=$BARKA_STORE_PASSWORD_SECRET" >> "$GITHUB_ENV"
-          echo "BARKA_SIGNING_KEY_ALIAS=$BARKA_KEY_ALIAS_SECRET" >> "$GITHUB_ENV"
-          echo "BARKA_SIGNING_KEY_PASSWORD=$BARKA_KEY_PASSWORD_SECRET" >> "$GITHUB_ENV"
+          test -n "$SERENE_KEYSTORE_BASE64" || { echo "Secret SERENE_KEYSTORE_BASE64 manquant"; exit 1; }
+          test -n "$SERENE_KEY_ALIAS_SECRET" || { echo "Secret SERENE_KEY_ALIAS manquant"; exit 1; }
+          test -n "$SERENE_STORE_PASSWORD_SECRET" || { echo "Secret SERENE_STORE_PASSWORD manquant"; exit 1; }
+          test -n "$SERENE_KEY_PASSWORD_SECRET" || { echo "Secret SERENE_KEY_PASSWORD manquant"; exit 1; }
+          KEYSTORE_PATH="$RUNNER_TEMP/serene-tunnel-release.jks"
+          printf '%s' "$SERENE_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
+          keytool -list -keystore "$KEYSTORE_PATH" -storepass "$SERENE_STORE_PASSWORD_SECRET" -alias "$SERENE_KEY_ALIAS_SECRET" >/dev/null
+          echo "SERENE_SIGNING_STORE_FILE=$KEYSTORE_PATH" >> "$GITHUB_ENV"
+          echo "SERENE_SIGNING_STORE_PASSWORD=$SERENE_STORE_PASSWORD_SECRET" >> "$GITHUB_ENV"
+          echo "SERENE_SIGNING_KEY_ALIAS=$SERENE_KEY_ALIAS_SECRET" >> "$GITHUB_ENV"
+          echo "SERENE_SIGNING_KEY_PASSWORD=$SERENE_KEY_PASSWORD_SECRET" >> "$GITHUB_ENV"
 
       - name: Nettoyer totalement le projet
         shell: bash
@@ -109,7 +109,7 @@ jobs:
           rm -rf app/build
           gradle --stop || true
 
-      - name: Compiler Barka Tunnel sans cache
+      - name: Compiler Serene Tunnel sans cache
         run: gradle clean assembleRelease --no-daemon --no-build-cache --rerun-tasks --stacktrace
 
       - name: Verifier sauvegarde et restauration de la consommation
@@ -123,7 +123,7 @@ jobs:
           test -f "$APK_SOURCE"
           APK_ENTRIES="$(unzip -Z1 "$APK_SOURCE")"
           for abi in arm64-v8a armeabi-v7a; do
-            for core in libbarka_xray.so libbarka_dnstt.so libtun2socks.so; do
+            for core in libSERENE_xray.so libSERENE_dnstt.so libtun2socks.so; do
               grep -Fxq "lib/$abi/$core" <<< "$APK_ENTRIES" || {
                 echo "Moteur absent de APK: lib/$abi/$core"
                 exit 1
@@ -137,96 +137,96 @@ jobs:
           set -e
           APK_SOURCE="app/build/outputs/apk/release/app-release.apk"
           test -f "$APK_SOURCE"
-          cp "$APK_SOURCE" BarkaTunnel-release.apk
-          sha256sum BarkaTunnel-release.apk
+          cp "$APK_SOURCE" SereneTunnel-release.apk
+          sha256sum SereneTunnel-release.apk
 
       - name: Publier artifact APK
         continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
-          name: BarkaTunnel-APK
-          path: BarkaTunnel-release.apk
+          name: SereneTunnel-APK
+          path: SereneTunnel-release.apk
           if-no-files-found: error
           retention-days: 30
 
       - name: Publier backend et APK directement sur le VPS
         shell: bash
         env:
-          BARKA_VPS_HOST: ${{ secrets.BARKA_VPS_HOST }}
-          BARKA_VPS_USER: ${{ secrets.BARKA_VPS_USER }}
-          BARKA_VPS_SSH_KEY: ${{ secrets.BARKA_VPS_SSH_KEY }}
-          BARKA_VPS_PORT: ${{ secrets.BARKA_VPS_PORT }}
+          SERENE_VPS_HOST: ${{ secrets.SERENE_VPS_HOST }}
+          SERENE_VPS_USER: ${{ secrets.SERENE_VPS_USER }}
+          SERENE_VPS_SSH_KEY: ${{ secrets.SERENE_VPS_SSH_KEY }}
+          SERENE_VPS_PORT: ${{ secrets.SERENE_VPS_PORT }}
         run: |
           set -euo pipefail
-          test -n "$BARKA_VPS_HOST" || { echo "Secret BARKA_VPS_HOST manquant"; exit 1; }
-          test -n "$BARKA_VPS_USER" || { echo "Secret BARKA_VPS_USER manquant"; exit 1; }
-          test -n "$BARKA_VPS_SSH_KEY" || { echo "Secret BARKA_VPS_SSH_KEY manquant"; exit 1; }
+          test -n "$SERENE_VPS_HOST" || { echo "Secret SERENE_VPS_HOST manquant"; exit 1; }
+          test -n "$SERENE_VPS_USER" || { echo "Secret SERENE_VPS_USER manquant"; exit 1; }
+          test -n "$SERENE_VPS_SSH_KEY" || { echo "Secret SERENE_VPS_SSH_KEY manquant"; exit 1; }
 
-          VPS_PORT="${BARKA_VPS_PORT:-22}"
-          REMOTE_TMP="/tmp/BarkaTunnel-${GITHUB_SHA}.apk"
-          BACKEND_ARCHIVE="BarkaBackend-${GITHUB_SHA}.tar.gz"
+          VPS_PORT="${SERENE_VPS_PORT:-22}"
+          REMOTE_TMP="/tmp/SereneTunnel-${GITHUB_SHA}.apk"
+          BACKEND_ARCHIVE="SereneBackend-${GITHUB_SHA}.tar.gz"
           REMOTE_BACKEND="/tmp/${BACKEND_ARCHIVE}"
-          REMOTE_APK="/opt/Barka-Tunnel/backend/data/releases/BarkaTunnel.apk"
+          REMOTE_APK="/opt/Serene-Tunnel/backend/data/releases/SereneTunnel.apk"
 
           install -d -m 700 "$HOME/.ssh"
-          printf '%s\n' "$BARKA_VPS_SSH_KEY" > "$HOME/.ssh/barka_vps_key"
-          chmod 600 "$HOME/.ssh/barka_vps_key"
-          ssh-keyscan -p "$VPS_PORT" -H "$BARKA_VPS_HOST" >> "$HOME/.ssh/known_hosts"
+          printf '%s\n' "$SERENE_VPS_SSH_KEY" > "$HOME/.ssh/SERENE_vps_key"
+          chmod 600 "$HOME/.ssh/SERENE_vps_key"
+          ssh-keyscan -p "$VPS_PORT" -H "$SERENE_VPS_HOST" >> "$HOME/.ssh/known_hosts"
 
-          LOCAL_SHA256="$(sha256sum BarkaTunnel-release.apk | awk '{print $1}')"
+          LOCAL_SHA256="$(sha256sum SereneTunnel-release.apk | awk '{print $1}')"
           tar -C backend --exclude=__pycache__ -czf "$BACKEND_ARCHIVE" app deploy_baseline.json verify_deploy.py
           BACKEND_SHA256="$(sha256sum "$BACKEND_ARCHIVE" | awk '{print $1}')"
-          scp -P "$VPS_PORT" -i "$HOME/.ssh/barka_vps_key" \
-            BarkaTunnel-release.apk \
-            "$BARKA_VPS_USER@$BARKA_VPS_HOST:$REMOTE_TMP"
-          scp -P "$VPS_PORT" -i "$HOME/.ssh/barka_vps_key" \
+          scp -P "$VPS_PORT" -i "$HOME/.ssh/SERENE_vps_key" \
+            SereneTunnel-release.apk \
+            "$SERENE_VPS_USER@$SERENE_VPS_HOST:$REMOTE_TMP"
+          scp -P "$VPS_PORT" -i "$HOME/.ssh/SERENE_vps_key" \
             "$BACKEND_ARCHIVE" \
-            "$BARKA_VPS_USER@$BARKA_VPS_HOST:$REMOTE_BACKEND"
+            "$SERENE_VPS_USER@$SERENE_VPS_HOST:$REMOTE_BACKEND"
 
-          REMOTE_RESULT="$(ssh -p "$VPS_PORT" -i "$HOME/.ssh/barka_vps_key" \
-            "$BARKA_VPS_USER@$BARKA_VPS_HOST" \
-            "BARKA_DEPLOY_SHA='$GITHUB_SHA' BARKA_REMOTE_APK='$REMOTE_TMP' BARKA_REMOTE_BACKEND='$REMOTE_BACKEND' BARKA_BACKEND_SHA256='$BACKEND_SHA256' BARKA_FINAL_APK='$REMOTE_APK' bash -s" <<'REMOTE_SCRIPT'
+          REMOTE_RESULT="$(ssh -p "$VPS_PORT" -i "$HOME/.ssh/SERENE_vps_key" \
+            "$SERENE_VPS_USER@$SERENE_VPS_HOST" \
+            "SERENE_DEPLOY_SHA='$GITHUB_SHA' SERENE_REMOTE_APK='$REMOTE_TMP' SERENE_REMOTE_BACKEND='$REMOTE_BACKEND' SERENE_BACKEND_SHA256='$BACKEND_SHA256' SERENE_FINAL_APK='$REMOTE_APK' bash -s" <<'REMOTE_SCRIPT'
           set -euo pipefail
-          BARKA_BACKEND_ROOT="/opt/Barka-Tunnel/backend"
-          BARKA_BACKUP_ROOT="$(mktemp -d /tmp/BarkaBackendBackup.XXXXXX)"
+          SERENE_BACKEND_ROOT="/opt/Serene-Tunnel/backend"
+          SERENE_BACKUP_ROOT="$(mktemp -d /tmp/SereneBackendBackup.XXXXXX)"
 
-          test -f "$BARKA_BACKEND_ROOT/.env"
-          test -d "$BARKA_BACKEND_ROOT/data"
-          test -f "$BARKA_BACKEND_ROOT/docker-compose.yml"
-          test -d "$BARKA_BACKEND_ROOT/app"
-          test "$(sha256sum "$BARKA_REMOTE_BACKEND" | awk '{print $1}')" = "$BARKA_BACKEND_SHA256"
+          test -f "$SERENE_BACKEND_ROOT/.env"
+          test -d "$SERENE_BACKEND_ROOT/data"
+          test -f "$SERENE_BACKEND_ROOT/docker-compose.yml"
+          test -d "$SERENE_BACKEND_ROOT/app"
+          test "$(sha256sum "$SERENE_REMOTE_BACKEND" | awk '{print $1}')" = "$SERENE_BACKEND_SHA256"
 
-          BARKA_STAGE="$(mktemp -d /tmp/BarkaBackendStage.XXXXXX)"
-          tar -xzf "$BARKA_REMOTE_BACKEND" -C "$BARKA_STAGE"
-          python3 "$BARKA_STAGE/verify_deploy.py" "$BARKA_BACKEND_ROOT" "$BARKA_STAGE"
-          rm -rf "$BARKA_STAGE"
+          SERENE_STAGE="$(mktemp -d /tmp/SereneBackendStage.XXXXXX)"
+          tar -xzf "$SERENE_REMOTE_BACKEND" -C "$SERENE_STAGE"
+          python3 "$SERENE_STAGE/verify_deploy.py" "$SERENE_BACKEND_ROOT" "$SERENE_STAGE"
+          rm -rf "$SERENE_STAGE"
 
-          install -d -m 700 "$BARKA_BACKUP_ROOT"
-          cp -a "$BARKA_BACKEND_ROOT/app" "$BARKA_BACKUP_ROOT/app"
+          install -d -m 700 "$SERENE_BACKUP_ROOT"
+          cp -a "$SERENE_BACKEND_ROOT/app" "$SERENE_BACKUP_ROOT/app"
 
           if ! (
-            tar -xzf "$BARKA_REMOTE_BACKEND" -C "$BARKA_BACKEND_ROOT" &&
-            cd "$BARKA_BACKEND_ROOT" &&
+            tar -xzf "$SERENE_REMOTE_BACKEND" -C "$SERENE_BACKEND_ROOT" &&
+            cd "$SERENE_BACKEND_ROOT" &&
             docker compose up -d --build &&
             curl -fsS --retry 10 --retry-delay 2 --retry-all-errors \
               http://127.0.0.1:8085/health | python3 -c 'import json,sys; d=json.load(sys.stdin); sys.exit(0 if d.get("ok") and d.get("payment_configured") else 1)'
           ); then
-            mv "$BARKA_BACKEND_ROOT/app" "$BARKA_BACKUP_ROOT/app-failed"
-            cp -a "$BARKA_BACKUP_ROOT/app" "$BARKA_BACKEND_ROOT/app"
+            mv "$SERENE_BACKEND_ROOT/app" "$SERENE_BACKUP_ROOT/app-failed"
+            cp -a "$SERENE_BACKUP_ROOT/app" "$SERENE_BACKEND_ROOT/app"
             (
-              cd "$BARKA_BACKEND_ROOT"
+              cd "$SERENE_BACKEND_ROOT"
               docker compose up -d --build
             )
             echo "Le nouveau backend a échoué : ancienne version restaurée."
             exit 1
           fi
 
-          install -d -m 755 "$(dirname "$BARKA_FINAL_APK")"
-          install -m 644 "$BARKA_REMOTE_APK" "$BARKA_FINAL_APK"
-          APK_SHA256="$(sha256sum "$BARKA_FINAL_APK" | awk '{print $1}')"
-          rm -f "$BARKA_REMOTE_APK" "$BARKA_REMOTE_BACKEND"
-          rm -rf "$BARKA_BACKUP_ROOT"
-          echo "BACKEND_DEPLOYED=$BARKA_DEPLOY_SHA"
+          install -d -m 755 "$(dirname "$SERENE_FINAL_APK")"
+          install -m 644 "$SERENE_REMOTE_APK" "$SERENE_FINAL_APK"
+          APK_SHA256="$(sha256sum "$SERENE_FINAL_APK" | awk '{print $1}')"
+          rm -f "$SERENE_REMOTE_APK" "$SERENE_REMOTE_BACKEND"
+          rm -rf "$SERENE_BACKUP_ROOT"
+          echo "BACKEND_DEPLOYED=$SERENE_DEPLOY_SHA"
           echo "APK_SHA256=$APK_SHA256"
           REMOTE_SCRIPT
           )"
@@ -236,5 +236,5 @@ jobs:
 
           test -n "$REMOTE_SHA256" || { echo "SHA256 distant absent"; exit 1; }
           test "$LOCAL_SHA256" = "$REMOTE_SHA256" || { echo "SHA256 distant incorrect"; exit 1; }
-          echo "APK publié: https://api.rhaffservice.com/downloads/BarkaTunnel.apk"
+          echo "APK publié: https://api.rhaffservice.com/downloads/SereneTunnel.apk"
           echo "SHA256=$REMOTE_SHA256"

@@ -44,30 +44,30 @@ jobs:
       - name: Configurer la signature Android stable
         shell: bash
         env:
-          BARKA_KEYSTORE_BASE64: ${{ secrets.BARKA_KEYSTORE_BASE64 }}
-          BARKA_KEY_ALIAS_SECRET: ${{ secrets.BARKA_KEY_ALIAS }}
-          BARKA_STORE_PASSWORD_SECRET: ${{ secrets.BARKA_STORE_PASSWORD }}
-          BARKA_KEY_PASSWORD_SECRET: ${{ secrets.BARKA_KEY_PASSWORD }}
+          SERENE_KEYSTORE_BASE64: ${{ secrets.SERENE_KEYSTORE_BASE64 }}
+          SERENE_KEY_ALIAS_SECRET: ${{ secrets.SERENE_KEY_ALIAS }}
+          SERENE_STORE_PASSWORD_SECRET: ${{ secrets.SERENE_STORE_PASSWORD }}
+          SERENE_KEY_PASSWORD_SECRET: ${{ secrets.SERENE_KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          test -n "$BARKA_KEYSTORE_BASE64" || { echo "Secret BARKA_KEYSTORE_BASE64 manquant"; exit 1; }
-          test -n "$BARKA_KEY_ALIAS_SECRET" || { echo "Secret BARKA_KEY_ALIAS manquant"; exit 1; }
-          test -n "$BARKA_STORE_PASSWORD_SECRET" || { echo "Secret BARKA_STORE_PASSWORD manquant"; exit 1; }
-          test -n "$BARKA_KEY_PASSWORD_SECRET" || { echo "Secret BARKA_KEY_PASSWORD manquant"; exit 1; }
-          KEYSTORE_PATH="$RUNNER_TEMP/barka-tunnel-release.jks"
-          printf '%s' "$BARKA_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
-          keytool -list -keystore "$KEYSTORE_PATH" -storepass "$BARKA_STORE_PASSWORD_SECRET" -alias "$BARKA_KEY_ALIAS_SECRET" >/dev/null
-          echo "BARKA_SIGNING_STORE_FILE=$KEYSTORE_PATH" >> "$GITHUB_ENV"
-          echo "BARKA_SIGNING_STORE_PASSWORD=$BARKA_STORE_PASSWORD_SECRET" >> "$GITHUB_ENV"
-          echo "BARKA_SIGNING_KEY_ALIAS=$BARKA_KEY_ALIAS_SECRET" >> "$GITHUB_ENV"
-          echo "BARKA_SIGNING_KEY_PASSWORD=$BARKA_KEY_PASSWORD_SECRET" >> "$GITHUB_ENV"
+          test -n "$SERENE_KEYSTORE_BASE64" || { echo "Secret SERENE_KEYSTORE_BASE64 manquant"; exit 1; }
+          test -n "$SERENE_KEY_ALIAS_SECRET" || { echo "Secret SERENE_KEY_ALIAS manquant"; exit 1; }
+          test -n "$SERENE_STORE_PASSWORD_SECRET" || { echo "Secret SERENE_STORE_PASSWORD manquant"; exit 1; }
+          test -n "$SERENE_KEY_PASSWORD_SECRET" || { echo "Secret SERENE_KEY_PASSWORD manquant"; exit 1; }
+          KEYSTORE_PATH="$RUNNER_TEMP/Serene-tunnel-release.jks"
+          printf '%s' "$SERENE_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
+          keytool -list -keystore "$KEYSTORE_PATH" -storepass "$SERENE_STORE_PASSWORD_SECRET" -alias "$SERENE_KEY_ALIAS_SECRET" >/dev/null
+          echo "SERENE_SIGNING_STORE_FILE=$KEYSTORE_PATH" >> "$GITHUB_ENV"
+          echo "SERENE_SIGNING_STORE_PASSWORD=$SERENE_STORE_PASSWORD_SECRET" >> "$GITHUB_ENV"
+          echo "SERENE_SIGNING_KEY_ALIAS=$SERENE_KEY_ALIAS_SECRET" >> "$GITHUB_ENV"
+          echo "SERENE_SIGNING_KEY_PASSWORD=$SERENE_KEY_PASSWORD_SECRET" >> "$GITHUB_ENV"
 
-      - name: Compiler Barka Tunnel
+      - name: Compiler Serene Tunnel
         run: gradle assembleDebug
 
-      - name: Publier APK Barka Tunnel
+      - name: Publier APK Serene Tunnel
         uses: actions/upload-artifact@v4
         with:
-          name: Barka-Tunnel-APK
+          name: Serene-Tunnel-APK
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
