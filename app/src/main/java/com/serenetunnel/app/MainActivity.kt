@@ -1,6 +1,6 @@
 package com.serenetunnel.app
 
-// BARKA_HOME_RUNTIME_V5_FINAL_NAV_NO_LOGIN
+// SERENE_HOME_RUNTIME_V5_FINAL_NAV_NO_LOGIN
 
 import android.Manifest
 import android.animation.ValueAnimator
