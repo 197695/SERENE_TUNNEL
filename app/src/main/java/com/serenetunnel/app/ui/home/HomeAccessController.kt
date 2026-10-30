@@ -68,7 +68,7 @@ class HomeAccessController private constructor(
         }
     )
 
-    constructor(context: Context, backendClient: BarkaBackendClient) : this(
+    constructor(context: Context, backendClient: SereneBackendClient) : this(
         connectionSnapshot = {
             val manager = context.applicationContext
                 .getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
@@ -128,7 +128,7 @@ class HomeAccessController private constructor(
 
     fun refreshAccess(): HomeAccessState = refreshAction()
 
-    // This snapshot only permits starting the native proxy. BarkaVpnService
+    // This snapshot only permits starting the native proxy. SereneVpnService
     // still checks live server authorization over SOCKS BEFORE creating TUN.
     fun prepareConnectionAccess(): HomeAccessState =
         connectionSnapshot()?.takeIf { it.allowed && it.remainingSeconds > 0L }
