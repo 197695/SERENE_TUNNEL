@@ -1,1 +1,65 @@
-
+package com.serenetunnel.app.backend
+import android.app.Application
+import com.serenetunnel.app.vpnc6.SereneVpnService
+import org.junit.Assert.*
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
+import org.robolectric.annotation.Config
+import java.net.ServerSocket
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [28], manifest = Config.NONE, application = Application::class)
+class ConnectedApiRoutingTest {
+    private fun state(name: String, value: Any?) {
+        SereneVpnService::class.java.getDeclaredField(name).apply { isAccessible = true }.set(null, value)
+    }
+    @Test fun connectedApiUsesSocksWithoutDirectRetry() {
+        val backend = SereneBackendClient(RuntimeEnvironment.getApplication())
+        val calls: List<() -> Unit> = listOf({ backend.startTrial() }, { backend.getVpnCatalog() },
+            { backend.getVpnProfile("moov_tiktok") }, { backend.startPayment("24h") },
+            { backend.checkPaymentStatus("test-reference") }, { backend.redeemActivationCode("SERENE-TEST") },
+            { backend.checkAppUpdate(110) }, { backend.getPricing() }, { backend.checkAccess() },
+            { backend.resellerPurchase("account", org.json.JSONObject().put("owner_key", "test")) },
+            { backend.resellerPurchase("cancel", org.json.JSONObject().put("owner_key", "test").put("payment_reference", "BTR-test")) })
+        val executor = Executors.newSingleThreadExecutor()
+        try {
+            for (call in calls) ServerSocket(0).use { server ->
+                server.soTimeout = 3000
+                state("runtimeSocksPort", server.localPort)
+                state("runtimeState", SereneVpnService.RuntimeConnectionState.CONNECTED)
+                val accepted = executor.submit<Boolean> {
+                    server.accept().use { socket ->
+                        socket.soTimeout = 3000
+                        val input = socket.getInputStream()
+                        assertEquals(5, input.read())
+                        val methods = input.read()
+                        repeat(methods) { assertTrue(input.read() >= 0) }
+                        socket.getOutputStream().write(byteArrayOf(5, 0xff.toByte()))
+                        socket.getOutputStream().flush()
+                    }
+                    true
+                }
+                try { call(); fail("La panne du proxy doit être signalée") }
+                catch (error: SereneBackendException) { assertTrue(error.message.orEmpty().contains("Connectez-vous à un réseau")) }
+                assertTrue(accepted.get(5, TimeUnit.SECONDS))
+            }
+        } finally {
+            state("runtimeState", SereneVpnService.RuntimeConnectionState.DISCONNECTED)
+            state("runtimeSocksPort", null)
+            executor.shutdownNow()
+        }
+    }
+    @Test fun unavailableSessionsNeverExposeProxyPort() {
+        try {
+            state("runtimeSocksPort", 10808)
+            for (s in listOf(SereneVpnService.RuntimeConnectionState.DISCONNECTED, SereneVpnService.RuntimeConnectionState.CONNECTING, SereneVpnService.RuntimeConnectionState.DISCONNECTING)) {
+                state("runtimeState", s); assertNull(SereneVpnService.connectedSocksPort())
+            }
+        } finally {
+            state("runtimeState", SereneVpnService.RuntimeConnectionState.DISCONNECTED); state("runtimeSocksPort", null)
+        }
+    }
+}
